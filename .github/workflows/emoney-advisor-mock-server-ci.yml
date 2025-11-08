@@ -1,0 +1,84 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "Emoney-Advisor-mock-server/**"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "Emoney-Advisor-mock-server/**"
+
+env:
+  PRODUCT_VERSION: "latest" # or: "latest"
+  IMAGE_TAG: ${{ github.ref_name }}-${{ github.sha }}
+  DOCKER_IMAGE: image-reg.ops.glynac.ai/emoney-advisor/emoney-advisor-mock-server
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: Enable insecure registry (HTTP)
+        run: |
+          echo '{"insecure-registries": ["image-reg.ops.glynac.ai"]}' | sudo tee /etc/docker/daemon.json
+          sudo systemctl restart docker
+          docker info | grep -A3 "Insecure Registries" || true
+
+      - name: Set up Docker Buildx (use docker driver)
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
+
+      - name: Login to Harbor
+        uses: docker/login-action@v3
+        with:
+          registry: image-reg.ops.glynac.ai
+          username: admin
+          password: ${{ secrets.HARBOR_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./Emoney-Advisor-mock-server
+          file: ./Emoney-Advisor-mock-server/Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
+          builder: default
+
+      - name: Save image tag
+        run: echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup `nomad`
+        uses: hashicorp/setup-nomad@main
+        id: setup
+        with:
+          version: ${{ env.PRODUCT_VERSION }}
+
+      - name: Update Nomad deployment with image tag
+        run: |
+          sed -i "s|IMAGE_TAG_PLACEHOLDER|${{ env.IMAGE_TAG }}|g" nomad/emoney-advisor-mock-server.hcl
+
+      - name: Request deployment to Nomad
+        env:
+          NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
+          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+        run: nomad job run nomad/emoney-advisor-mock-server.hcl
