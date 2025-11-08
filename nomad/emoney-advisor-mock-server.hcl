@@ -38,7 +38,7 @@
     #      attribute	= "${meta.duty}"
     #      operator	= "set_contains_any"
     #      value	= "glynac2worker"
-        value     = "Worker-02" 
+        value     = "Worker-01" 
         }
 
         task "emoney-advisor-mock-server" {
@@ -71,11 +71,11 @@
     }
 
         resources {
-            cpu = 200
-            memory = 200
-            } 
+           cpu = 200
+           memory = 200
+        } 
 
-        }
+      }
         
     }
-    }
+}
