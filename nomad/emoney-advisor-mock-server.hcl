@@ -34,11 +34,9 @@
         }   
 
         constraint {
-        attribute = "${attr.unique.hostname}"
-    #      attribute	= "${meta.duty}"
-    #      operator	= "set_contains_any"
-    #      value	= "glynac2worker"
-        value     = "Worker-07" 
+            attribute = "${meta.duty}"
+            operator  = "set_contains_any"
+            value     = "glynac-db"
         }
 
         task "emoney-advisor-mock-server" {
