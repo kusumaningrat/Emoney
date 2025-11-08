@@ -1,7 +1,7 @@
 # eMoney Advisor GET-Only Endpoints & Entity Types (Data Extraction)
 
 **Purpose:**  
-This document provides a concise reference to the eMoney Advisor API endpoints for data extraction. It is intended to help developers and integrators quickly identify which GET-only endpoints and entity types are available for use, ensuring reliable access to client information, financial plans, assets, and other wealth management data. Use this guide to streamline integration, reporting, and compliance workflows with eMoney Advisor.
+This document provides a concise reference to the eMoney Advisor API endpoints for data extraction. It is intended to help developers and integrators quickly identify which GET-only endpoints and entity types are available for use, ensuring reliable access to client information, financial plans, assets, and other wealth management data. Use this guide to streamline integration, reporting, and compliance workflows with eMoney Advisor
 
 ## 🔍 Core GET Endpoints
 
