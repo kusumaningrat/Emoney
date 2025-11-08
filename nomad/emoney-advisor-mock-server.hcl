@@ -38,7 +38,7 @@
     #      attribute	= "${meta.duty}"
     #      operator	= "set_contains_any"
     #      value	= "glynac2worker"
-        value     = "Worker-01" 
+        value     = "Worker-07" 
         }
 
         task "emoney-advisor-mock-server" {
