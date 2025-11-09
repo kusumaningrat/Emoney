@@ -1,7 +1,5 @@
-# routes/admin.py
-
-from fastapi import APIRouter, Depends, HTTPException, Header, Query, Path, status
-from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, Header
+from typing import Dict, Any
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 import importlib
@@ -17,11 +15,7 @@ except ImportError:
     print("Warning: main_seeder module not available")
     seed_all_data = None
 
-router = APIRouter(
-    tags=["Admin"],
-    dependencies=[Depends(verify_api_key)],
-    responses={401: {"description": "Unauthorized"}},
-)
+router = APIRouter()
 
 def ensure_system_user():
     """Ensure system user exists before seeding"""
@@ -69,7 +63,7 @@ def ensure_system_user():
     finally:
         db.close()
 
-@router.post("/seed", response_model=Dict[str, Any])
+@router.post("/seed", response_model=Dict[str, Any], tags=["Admin"])
 async def seed_database(
     x_api_key: str = Header(...),
     x_api_secret: str = Header(...),
@@ -93,6 +87,9 @@ async def seed_database(
     
     Warning: This will reset any existing data. Use with caution.
     """
+    # Verify API credentials
+    verify_api_key(x_api_key, x_api_secret)
+    
     # CRITICAL: Ensure system user exists before seeding
     try:
         ensure_system_user()
@@ -107,10 +104,10 @@ async def seed_database(
         if seed_all_data:
             result = seed_all_data(db)
             
-            if result["status"] == "error":
+            if result.get("status") == "error":
                 raise HTTPException(
                     status_code=500,
-                    detail=result["message"]
+                    detail=result.get("message", "Unknown seeding error")
                 )
             
             return result
@@ -119,7 +116,7 @@ async def seed_database(
             return {
                 "status": "warning",
                 "message": "Main seeder not available. Please implement seeders.main_seeder.seed_all_data()",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
     except HTTPException:
         raise
@@ -129,7 +126,7 @@ async def seed_database(
             detail=f"Failed to seed database: {str(e)}"
         )
 
-@router.post("/reset", response_model=Dict[str, Any])
+@router.post("/reset", response_model=Dict[str, Any], tags=["Admin"])
 async def reset_database(
     x_api_key: str = Header(...),
     x_api_secret: str = Header(...),
@@ -139,6 +136,9 @@ async def reset_database(
     Reset the database by dropping and recreating all tables.
     Warning: This will delete all data. Use with caution.
     """
+    # Verify API credentials
+    verify_api_key(x_api_key, x_api_secret)
+    
     try:
         # Drop all tables
         Base.metadata.drop_all(bind=engine)
@@ -155,7 +155,7 @@ async def reset_database(
         return {
             "status": "success",
             "message": "Database reset successfully",
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         raise HTTPException(
@@ -163,7 +163,7 @@ async def reset_database(
             detail=f"Failed to reset database: {str(e)}"
         )
 
-@router.get("/status", response_model=Dict[str, Any])
+@router.get("/status", response_model=Dict[str, Any], tags=["Admin"])
 async def get_database_status(
     x_api_key: str = Header(...),
     x_api_secret: str = Header(...),
@@ -172,6 +172,9 @@ async def get_database_status(
     """
     Get database status information including entity counts.
     """
+    # Verify API credentials
+    verify_api_key(x_api_key, x_api_secret)
+    
     try:
         # Function to safely count models
         def safe_model_count(module_name, model_name):
@@ -188,11 +191,11 @@ async def get_database_status(
         status = {
             "database": {
                 "status": "Connected",
-                "engine": str(engine.url).split("@")[-1]  # Hide credentials
+                "engine": str(engine.url).split("@")[-1] if "@" in str(engine.url) else str(engine.url)
             },
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "entity_counts": {
-                # users Management
+                # User Management
                 "firms": safe_model_count("users", "Firm"),
                 "users": safe_model_count("users", "User"),
                 "roles": safe_model_count("users", "Role"),
@@ -235,12 +238,12 @@ async def get_database_status(
                 "budget_categories": safe_model_count("spending", "BudgetCategory"),
                 
                 # Document Management
-                "file_types": safe_model_count("document", "FileType"),
-                "vault_documents": safe_model_count("document", "VaultDocument"),
-                "attachments": safe_model_count("document", "Attachment"),
-                "notes": safe_model_count("document", "Note"),
-                "tasks": safe_model_count("document", "Task"),
-                "alerts": safe_model_count("document", "Alert"),
+                "file_types": safe_model_count("documents", "FileType"),
+                "vault_documents": safe_model_count("documents", "VaultDocument"),
+                "attachments": safe_model_count("documents", "Attachment"),
+                "notes": safe_model_count("documents", "Note"),
+                "tasks": safe_model_count("documents", "Task"),
+                "alerts": safe_model_count("documents", "Alert"),
                 
                 # Estate Planning
                 "estates": safe_model_count("estate", "Estate"),
@@ -271,6 +274,7 @@ async def get_database_status(
         # Calculate total entities
         non_zero_counts = [count for count in status["entity_counts"].values() if count > 0]
         status["entity_counts"]["total_entities"] = sum(non_zero_counts)
+        status["entity_counts"]["total_entity_types"] = len(non_zero_counts)
         
         return status
     except Exception as e:
