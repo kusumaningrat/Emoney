@@ -1,6 +1,9 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, Date, DateTime, Text, JSON
+# models/financial.py - Version 3: Financial Planning Core (Schema Compliant)
+
+from sqlalchemy import Column, String, DateTime, ForeignKey, Numeric, Integer, JSON, Date
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 import enum
 
 from database import Base
@@ -15,168 +18,168 @@ class PlanStatus(str, enum.Enum):
     DRAFT = "Draft"
     ARCHIVED = "Archived"
 
+class PlanType(str, enum.Enum):
+    COMPREHENSIVE = "Comprehensive"
+    RETIREMENT = "Retirement"
+    EDUCATION = "Education"
+    ESTATE = "Estate"
+    TAX = "Tax"
+    INSURANCE = "Insurance"
+
 class GoalStatus(str, enum.Enum):
     ON_TRACK = "OnTrack"
+    AT_RISK = "AtRisk"
     OFF_TRACK = "OffTrack"
     ACHIEVED = "Achieved"
-    DEFERRED = "Deferred"
-    ABANDONED = "Abandoned"
+    PAUSED = "Paused"
 
 class GoalType(str, enum.Enum):
     RETIREMENT = "Retirement"
     EDUCATION = "Education"
     HOME_PURCHASE = "HomePurchase"
-    MAJOR_PURCHASE = "MajorPurchase"
-    WEALTH_ACCUMULATION = "WealthAccumulation"
+    EMERGENCY_FUND = "EmergencyFund"
+    VACATION = "Vacation"
     DEBT_PAYOFF = "DebtPayoff"
-    LEGACY = "Legacy"
     OTHER = "Other"
 
 class ScenarioType(str, enum.Enum):
-    BASE = "Base"
-    BEST_CASE = "BestCase"
-    WORST_CASE = "WorstCase"
-    CUSTOM = "Custom"
-
-class ScenarioStatus(str, enum.Enum):
-    ACTIVE = "Active"
-    INACTIVE = "Inactive"
+    BASE_CASE = "BaseCase"
+    OPTIMISTIC = "Optimistic"
+    PESSIMISTIC = "Pessimistic"
+    WHAT_IF = "WhatIf"
 
 class RetirementReadiness(str, enum.Enum):
     ON_TRACK = "OnTrack"
-    NEEDS_ATTENTION = "NeedsAttention"
-    OFF_TRACK = "OffTrack"
-    RETIRED = "Retired"
+    BEHIND = "Behind"
+    AHEAD = "Ahead"
+    UNKNOWN = "Unknown"
 
 # ============================================================================
-# MODELS
+# MODELS - Following eMoney V3 Schema Specification
 # ============================================================================
 
 class FinancialPlan(Base):
-    """Financial Plan Model"""
+    """FinancialPlan Model - eMoney V3 Schema"""
     __tablename__ = "financial_plans"
     __table_args__ = {'extend_existing': True}
     
-    plan_id = Column(String, primary_key=True, index=True)
-    client_id = Column(String, ForeignKey("clients.client_id"), nullable=False)
-    household_id = Column(String, ForeignKey("households.household_id"), nullable=True)
-    plan_name = Column(String, nullable=False)
-    plan_type = Column(String, nullable=True)  # Comprehensive, Retirement, Education, etc.
-    status = Column(String, nullable=False, default=PlanStatus.ACTIVE.value)
-    start_date = Column(Date, nullable=True)
-    end_date = Column(Date, nullable=True)
-    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
-    last_reviewed = Column(DateTime, nullable=True)
-    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    created_by = Column(String, ForeignKey("users.user_id"), nullable=True)
-    retirement_readiness = Column(String, nullable=True)
+    # Primary Fields - Following Schema Specification
+    PlanID = Column("PlanID", String, primary_key=True, index=True)
+    ClientID = Column("ClientID", String, ForeignKey("clients.ClientID"), nullable=False)
+    HouseholdID = Column("HouseholdID", String, ForeignKey("households.HouseholdID"), nullable=True)
+    PlanName = Column("PlanName", String, nullable=False)
+    PlanType = Column("PlanType", String, nullable=False, default=PlanType.COMPREHENSIVE.value)
+    Status = Column("Status", String, nullable=False, default=PlanStatus.ACTIVE.value)
+    StartDate = Column("StartDate", Date, nullable=True)
+    EndDate = Column("EndDate", Date, nullable=True)
+    CreatedDate = Column("CreatedDate", DateTime, nullable=False, default=datetime.utcnow)
+    LastReviewed = Column("LastReviewed", DateTime, nullable=True)
+    ModifiedDate = Column("ModifiedDate", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    CreatedBy = Column("CreatedBy", String, ForeignKey("users.UserID"), nullable=True)
+    RetirementReadiness = Column("RetirementReadiness", String, nullable=True, default=RetirementReadiness.UNKNOWN.value)
     
-    # Relationships to V2 models (viewonly, no back_populates)
-    client = relationship("Client", foreign_keys=[client_id], viewonly=True)
-    household = relationship("Household", foreign_keys=[household_id], viewonly=True)
-    
-    # Relationship to V1 models (viewonly, no back_populates)
-    created_by_user = relationship("User", foreign_keys=[created_by], viewonly=True)
-    
-    # V3 Internal Relationships
-    goals = relationship("Goal", back_populates="plan", cascade="all, delete-orphan")
-    scenarios = relationship("Scenario", back_populates="plan", cascade="all, delete-orphan")
-    cash_flows = relationship("CashFlow", back_populates="plan", cascade="all, delete-orphan")
-    net_worths = relationship("NetWorth", back_populates="plan", cascade="all, delete-orphan")
+    # Relationships
+    client = relationship("Client", foreign_keys=[ClientID])
+    household = relationship("Household", foreign_keys=[HouseholdID])
+    created_by_user = relationship("User", foreign_keys=[CreatedBy])
+    goals = relationship("Goal", back_populates="financial_plan")
+    scenarios = relationship("Scenario", back_populates="financial_plan")
+    cash_flows = relationship("CashFlow", back_populates="financial_plan")
+    net_worths = relationship("NetWorth", back_populates="financial_plan")
 
 
 class Goal(Base):
-    """Goal Model"""
+    """Goal Model - eMoney V3 Schema"""
     __tablename__ = "goals"
     __table_args__ = {'extend_existing': True}
     
-    goal_id = Column(String, primary_key=True, index=True)
-    plan_id = Column(String, ForeignKey("financial_plans.plan_id"), nullable=False)
-    client_id = Column(String, ForeignKey("clients.client_id"), nullable=False)
-    goal_type = Column(String, nullable=False, default=GoalType.OTHER.value)
-    goal_name = Column(String, nullable=False)
-    description = Column(Text, nullable=True)
-    target_date = Column(Date, nullable=True)
-    target_amount = Column(Float, nullable=True, default=0.0)
-    current_value = Column(Float, nullable=True, default=0.0)
-    monthly_contribution = Column(Float, nullable=True, default=0.0)
-    projected_value = Column(Float, nullable=True, default=0.0)
-    funding_percentage = Column(Float, nullable=True, default=0.0)
-    priority = Column(Integer, nullable=True, default=5)  # 1-10
-    status = Column(String, nullable=False, default=GoalStatus.ON_TRACK.value)
-    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
-    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Primary Fields - Following Schema Specification
+    GoalID = Column("GoalID", String, primary_key=True, index=True)
+    PlanID = Column("PlanID", String, ForeignKey("financial_plans.PlanID"), nullable=False)
+    ClientID = Column("ClientID", String, ForeignKey("clients.ClientID"), nullable=False)
+    GoalType = Column("GoalType", String, nullable=False, default=GoalType.OTHER.value)
+    GoalName = Column("GoalName", String, nullable=False)
+    Description = Column("Description", String, nullable=True)
+    TargetDate = Column("TargetDate", Date, nullable=True)
+    TargetAmount = Column("TargetAmount", Numeric(18, 2), nullable=True)
+    CurrentValue = Column("CurrentValue", Numeric(18, 2), nullable=True, default=0.00)
+    MonthlyContribution = Column("MonthlyContribution", Numeric(18, 2), nullable=True, default=0.00)
+    ProjectedValue = Column("ProjectedValue", Numeric(18, 2), nullable=True, default=0.00)
+    FundingPercentage = Column("FundingPercentage", Numeric(5, 2), nullable=True, default=0.00)
+    Priority = Column("Priority", Integer, nullable=True, default=1)
+    Status = Column("Status", String, nullable=False, default=GoalStatus.ON_TRACK.value)
+    CreatedDate = Column("CreatedDate", DateTime, nullable=False, default=datetime.utcnow)
+    ModifiedDate = Column("ModifiedDate", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    plan = relationship("FinancialPlan", back_populates="goals")
-    
-    # Relationship to V2 models (viewonly, no back_populates)
-    client = relationship("Client", foreign_keys=[client_id], viewonly=True)
+    financial_plan = relationship("FinancialPlan", back_populates="goals")
+    client = relationship("Client", foreign_keys=[ClientID])
 
 
 class Scenario(Base):
-    """Scenario Model - What-if analysis"""
+    """Scenario Model - eMoney V3 Schema"""
     __tablename__ = "scenarios"
     __table_args__ = {'extend_existing': True}
     
-    scenario_id = Column(String, primary_key=True, index=True)
-    plan_id = Column(String, ForeignKey("financial_plans.plan_id"), nullable=False)
-    scenario_name = Column(String, nullable=False)
-    scenario_type = Column(String, nullable=False, default=ScenarioType.CUSTOM.value)
-    description = Column(Text, nullable=True)
-    assumptions = Column(Text, nullable=True)  # JSON string of assumptions
-    results = Column(Text, nullable=True)  # JSON string of results
-    status = Column(String, nullable=False, default=ScenarioStatus.ACTIVE.value)
-    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
-    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Primary Fields - Following Schema Specification
+    ScenarioID = Column("ScenarioID", String, primary_key=True, index=True)
+    PlanID = Column("PlanID", String, ForeignKey("financial_plans.PlanID"), nullable=False)
+    ScenarioName = Column("ScenarioName", String, nullable=False)
+    ScenarioType = Column("ScenarioType", String, nullable=False, default=ScenarioType.BASE_CASE.value)
+    Description = Column("Description", String, nullable=True)
+    Assumptions = Column("Assumptions", JSON, nullable=True)
+    Results = Column("Results", JSON, nullable=True)
+    Status = Column("Status", String, nullable=False, default=PlanStatus.ACTIVE.value)
+    CreatedDate = Column("CreatedDate", DateTime, nullable=False, default=datetime.utcnow)
+    ModifiedDate = Column("ModifiedDate", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    plan = relationship("FinancialPlan", back_populates="scenarios")
+    financial_plan = relationship("FinancialPlan", back_populates="scenarios")
 
 
 class CashFlow(Base):
-    """Cash Flow Model - Projections over time"""
+    """CashFlow Model - eMoney V3 Schema"""
     __tablename__ = "cash_flows"
     __table_args__ = {'extend_existing': True}
     
-    cash_flow_id = Column(String, primary_key=True, index=True)
-    plan_id = Column(String, ForeignKey("financial_plans.plan_id"), nullable=False)
-    year = Column(Integer, nullable=False)
-    month = Column(Integer, nullable=True)  # 1-12, null means annual
-    total_income = Column(Float, nullable=False, default=0.0)
-    total_expenses = Column(Float, nullable=False, default=0.0)
-    net_cash_flow = Column(Float, nullable=False, default=0.0)
-    cumulative_cash_flow = Column(Float, nullable=True, default=0.0)
-    inflation_rate = Column(Float, nullable=True, default=0.0)
-    status = Column(String, nullable=False, default="Active")
-    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
-    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Primary Fields - Following Schema Specification
+    CashFlowID = Column("CashFlowID", String, primary_key=True, index=True)
+    PlanID = Column("PlanID", String, ForeignKey("financial_plans.PlanID"), nullable=False)
+    Year = Column("Year", Integer, nullable=False)
+    Month = Column("Month", Integer, nullable=True)
+    TotalIncome = Column("TotalIncome", Numeric(18, 2), nullable=True, default=0.00)
+    TotalExpenses = Column("TotalExpenses", Numeric(18, 2), nullable=True, default=0.00)
+    NetCashFlow = Column("NetCashFlow", Numeric(18, 2), nullable=True, default=0.00)
+    CumulativeCashFlow = Column("CumulativeCashFlow", Numeric(18, 2), nullable=True, default=0.00)
+    InflationRate = Column("InflationRate", Numeric(5, 4), nullable=True, default=0.0300)
+    Status = Column("Status", String, nullable=False, default=PlanStatus.ACTIVE.value)
+    CreatedDate = Column("CreatedDate", DateTime, nullable=False, default=datetime.utcnow)
+    ModifiedDate = Column("ModifiedDate", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    plan = relationship("FinancialPlan", back_populates="cash_flows")
+    financial_plan = relationship("FinancialPlan", back_populates="cash_flows")
 
 
 class NetWorth(Base):
-    """Net Worth Model - Snapshots over time"""
+    """NetWorth Model - eMoney V3 Schema"""
     __tablename__ = "net_worths"
     __table_args__ = {'extend_existing': True}
     
-    net_worth_id = Column(String, primary_key=True, index=True)
-    plan_id = Column(String, ForeignKey("financial_plans.plan_id"), nullable=False)
-    household_id = Column(String, ForeignKey("households.household_id"), nullable=True)
-    as_of_date = Column(Date, nullable=False)
-    total_assets = Column(Float, nullable=False, default=0.0)
-    total_liabilities = Column(Float, nullable=False, default=0.0)
-    net_worth = Column(Float, nullable=False, default=0.0)
-    liquid_assets = Column(Float, nullable=True, default=0.0)
-    invested_assets = Column(Float, nullable=True, default=0.0)
-    use_assets = Column(Float, nullable=True, default=0.0)  # Home, cars, etc.
-    status = Column(String, nullable=False, default="Active")
-    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
-    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Primary Fields - Following Schema Specification
+    NetWorthID = Column("NetWorthID", String, primary_key=True, index=True)
+    PlanID = Column("PlanID", String, ForeignKey("financial_plans.PlanID"), nullable=False)
+    HouseholdID = Column("HouseholdID", String, ForeignKey("households.HouseholdID"), nullable=True)
+    AsOfDate = Column("AsOfDate", Date, nullable=False)
+    TotalAssets = Column("TotalAssets", Numeric(18, 2), nullable=True, default=0.00)
+    TotalLiabilities = Column("TotalLiabilities", Numeric(18, 2), nullable=True, default=0.00)
+    NetWorth = Column("NetWorth", Numeric(18, 2), nullable=True, default=0.00)
+    LiquidAssets = Column("LiquidAssets", Numeric(18, 2), nullable=True, default=0.00)
+    InvestedAssets = Column("InvestedAssets", Numeric(18, 2), nullable=True, default=0.00)
+    UseAssets = Column("UseAssets", Numeric(18, 2), nullable=True, default=0.00)
+    Status = Column("Status", String, nullable=False, default=PlanStatus.ACTIVE.value)
+    CreatedDate = Column("CreatedDate", DateTime, nullable=False, default=datetime.utcnow)
+    ModifiedDate = Column("ModifiedDate", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    plan = relationship("FinancialPlan", back_populates="net_worths")
-    
-    # Relationship to V2 models (viewonly, no back_populates)
-    household = relationship("Household", foreign_keys=[household_id], viewonly=True)
+    financial_plan = relationship("FinancialPlan", back_populates="net_worths")
+    household = relationship("Household", foreign_keys=[HouseholdID])

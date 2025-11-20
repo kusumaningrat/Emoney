@@ -32,4 +32,12 @@ def get_db():
 
 def init_db():
     """Initialize database tables"""
+    # Import all models here to ensure they're registered with SQLAlchemy
+    # Import V1 models first (they're referenced by V2)
+    from models import identity
+    
+    # Import V2 models second (they reference V1)
+    from models import client
+    
+    # Create all tables
     Base.metadata.create_all(bind=engine)
