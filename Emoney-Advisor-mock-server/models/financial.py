@@ -1,386 +1,182 @@
-from sqlalchemy import Column, String, Float, Integer, ForeignKey, JSON, DateTime, Date, Text, Boolean
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, Date, DateTime, Text, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
+import enum
+
 from database import Base
 
+# ============================================================================
+# ENUMS
+# ============================================================================
+
+class PlanStatus(str, enum.Enum):
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
+    DRAFT = "Draft"
+    ARCHIVED = "Archived"
+
+class GoalStatus(str, enum.Enum):
+    ON_TRACK = "OnTrack"
+    OFF_TRACK = "OffTrack"
+    ACHIEVED = "Achieved"
+    DEFERRED = "Deferred"
+    ABANDONED = "Abandoned"
+
+class GoalType(str, enum.Enum):
+    RETIREMENT = "Retirement"
+    EDUCATION = "Education"
+    HOME_PURCHASE = "HomePurchase"
+    MAJOR_PURCHASE = "MajorPurchase"
+    WEALTH_ACCUMULATION = "WealthAccumulation"
+    DEBT_PAYOFF = "DebtPayoff"
+    LEGACY = "Legacy"
+    OTHER = "Other"
+
+class ScenarioType(str, enum.Enum):
+    BASE = "Base"
+    BEST_CASE = "BestCase"
+    WORST_CASE = "WorstCase"
+    CUSTOM = "Custom"
+
+class ScenarioStatus(str, enum.Enum):
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
+
+class RetirementReadiness(str, enum.Enum):
+    ON_TRACK = "OnTrack"
+    NEEDS_ATTENTION = "NeedsAttention"
+    OFF_TRACK = "OffTrack"
+    RETIRED = "Retired"
+
+# ============================================================================
+# MODELS
+# ============================================================================
+
 class FinancialPlan(Base):
-    """
-    FinancialPlan model for storing financial planning data
-    """
+    """Financial Plan Model"""
     __tablename__ = "financial_plans"
+    __table_args__ = {'extend_existing': True}
     
-    id = Column(String, primary_key=True)
-    client_id = Column(String, ForeignKey("clients.id"), nullable=False, index=True)
-    name = Column(String, nullable=False)
-    description = Column(Text)
-    status = Column(String, default="active")
+    plan_id = Column(String, primary_key=True, index=True)
+    client_id = Column(String, ForeignKey("clients.client_id"), nullable=False)
+    household_id = Column(String, ForeignKey("households.household_id"), nullable=True)
+    plan_name = Column(String, nullable=False)
+    plan_type = Column(String, nullable=True)  # Comprehensive, Retirement, Education, etc.
+    status = Column(String, nullable=False, default=PlanStatus.ACTIVE.value)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_reviewed = Column(DateTime, nullable=True)
+    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_by = Column(String, ForeignKey("users.user_id"), nullable=True)
+    retirement_readiness = Column(String, nullable=True)
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Relationships to V2 models (viewonly, no back_populates)
+    client = relationship("Client", foreign_keys=[client_id], viewonly=True)
+    household = relationship("Household", foreign_keys=[household_id], viewonly=True)
     
-    # Relationships
-    goals = relationship("Goal", back_populates="financial_plan", cascade="all, delete-orphan")
-    monte_carlos = relationship("MonteCarlo", back_populates="financial_plan", cascade="all, delete-orphan")
-    projections = relationship("Projection", back_populates="financial_plan", cascade="all, delete-orphan")
-    retirement_plan = relationship("RetirementPlan", back_populates="financial_plan", uselist=False, cascade="all, delete-orphan")
-    cash_flows = relationship("CashFlow", back_populates="financial_plan", cascade="all, delete-orphan")
-    scenarios = relationship("Scenario", back_populates="financial_plan", cascade="all, delete-orphan")
+    # Relationship to V1 models (viewonly, no back_populates)
+    created_by_user = relationship("User", foreign_keys=[created_by], viewonly=True)
     
-    # Relationships for liabilities and assets
-    liabilities = relationship(
-        "Liability", 
-        primaryjoin="FinancialPlan.id==Liability.plan_id", 
-        cascade="all, delete-orphan",
-        back_populates="plan"
-    )
-    
-    client = relationship(
-        "Client", 
-        primaryjoin="FinancialPlan.client_id==Client.id",
-        back_populates="plans"
-    )
-    assets = relationship(
-        "Asset", 
-        primaryjoin="FinancialPlan.id==Asset.plan_id", 
-        cascade="all, delete-orphan",
-        back_populates="plan"
-    )
-    
-    # Updated relationship for Income (from this file)
-    income_items = relationship("PlanIncome", back_populates="financial_plan", cascade="all, delete-orphan")
-    
-    # Updated relationship for Income from spending.py
-    income_sources = relationship(
-        "Income", 
-        primaryjoin="FinancialPlan.id==Income.plan_id",
-        back_populates="plan",
-        foreign_keys="[Income.plan_id]"
-    )
-    
-    # Updated relationship for Expense
-    expenses = relationship(
-        "Expense", 
-        primaryjoin="FinancialPlan.id==Expense.plan_id",
-        back_populates="plan", 
-        cascade="all, delete-orphan"
-    )
-    
-    tax_plans = relationship("TaxPlan", back_populates="financial_plan", cascade="all, delete-orphan")
-    
-    # Updated relationship to use Estate model
-    estate_plan = relationship(
-        "Estate", 
-        back_populates="financial_plan", 
-        uselist=False
-    )
-    
-    insurance_plans = relationship("InsurancePlan", back_populates="financial_plan", cascade="all, delete-orphan")
+    # V3 Internal Relationships
+    goals = relationship("Goal", back_populates="plan", cascade="all, delete-orphan")
+    scenarios = relationship("Scenario", back_populates="plan", cascade="all, delete-orphan")
+    cash_flows = relationship("CashFlow", back_populates="plan", cascade="all, delete-orphan")
+    net_worths = relationship("NetWorth", back_populates="plan", cascade="all, delete-orphan")
 
-class Scenario(Base):
-    """
-    Scenario model for storing financial planning scenarios
-    """
-    __tablename__ = "scenarios"
-    
-    id = Column(String, primary_key=True)
-    plan_id = Column(String, ForeignKey('financial_plans.id'), nullable=False)
-    name = Column(String, nullable=False)
-    description = Column(Text)
-    is_default = Column(Boolean, default=False)
-    status = Column(String, default="active")
-    
-    # Scenario assumptions and parameters
-    retirement_age = Column(Integer)
-    life_expectancy = Column(Integer)
-    inflation_rate = Column(Float)
-    investment_return_rate = Column(Float)
-    tax_rate = Column(Float)
-    withdrawal_strategy = Column(String)
-    social_security_strategy = Column(String)
-    parameters = Column(JSON)  # Flexible JSON for additional scenario parameters
-    
-    # Scenario results
-    results_summary = Column(JSON)
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    financial_plan = relationship("FinancialPlan", back_populates="scenarios")
-    cash_flows = relationship("CashFlow", back_populates="scenario")
-    monte_carlos = relationship("MonteCarlo", back_populates="scenario")
-
-class InsurancePlan(Base):
-    """
-    InsurancePlan model for storing insurance planning data
-    """
-    __tablename__ = "insurance_plans"
-    
-    id = Column(String, primary_key=True)
-    client_id = Column(String, ForeignKey("clients.id"), nullable=False, index=True)
-    plan_id = Column(String, ForeignKey('financial_plans.id'))
-    name = Column(String, nullable=False)
-    description = Column(Text)
-    status = Column(String, default="active")
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Insurance-specific fields
-    annual_premium_total = Column(Float, default=0.0)
-    coverage_summary = Column(JSON)  # Summary of coverage across all policies
-    
-    # Relationships
-    policies = relationship("Policy", back_populates="insurance_plan", cascade="all, delete-orphan")
-    financial_plan = relationship("FinancialPlan", back_populates="insurance_plans")
-
-class Policy(Base):
-    """
-    Policy model for storing individual insurance policies
-    """
-    __tablename__ = "policies"
-    
-    id = Column(String, primary_key=True)
-    insurance_plan_id = Column(String, ForeignKey('insurance_plans.id'), nullable=False)
-    policy_number = Column(String)
-    policy_type = Column(String)  # e.g., "Life", "Health", "Auto", "Home", etc.
-    insurer = Column(String)
-    insured_name = Column(String)
-    
-    # Policy details
-    coverage_amount = Column(Float)
-    annual_premium = Column(Float)
-    deductible = Column(Float)
-    start_date = Column(Date)
-    end_date = Column(Date)
-    renewal_date = Column(Date)
-    beneficiaries = Column(JSON)  # List of beneficiaries if applicable
-    
-    # Policy document info
-    document_location = Column(String)
-    notes = Column(Text)
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationship
-    insurance_plan = relationship("InsurancePlan", back_populates="policies")
 
 class Goal(Base):
-    """
-    Goal model for storing financial goals
-    """
+    """Goal Model"""
     __tablename__ = "goals"
+    __table_args__ = {'extend_existing': True}
     
-    id = Column(String, primary_key=True)
-    plan_id = Column(String, ForeignKey('financial_plans.id'), nullable=False)
-    name = Column(String, nullable=False)
-    description = Column(Text)
-    target_amount = Column(Float)
-    current_amount = Column(Float, default=0.0)
-    target_date = Column(Date)
-    priority = Column(String)
-    category = Column(String)
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationship
-    financial_plan = relationship("FinancialPlan", back_populates="goals")
-    expenses = relationship("Expense", back_populates="goal")
-
-class MonteCarlo(Base):
-    """
-    MonteCarlo model for storing Monte Carlo simulation results
-    """
-    __tablename__ = "monte_carlos"
-    
-    id = Column(String, primary_key=True)
-    plan_id = Column(String, ForeignKey('financial_plans.id'), nullable=False)
-    scenario_id = Column(String, ForeignKey('scenarios.id'), nullable=True)
-    success_rate = Column(Float)
-    iterations = Column(Integer)
-    confidence_interval = Column(Float)
-    median_ending_value = Column(Float)
-    lowest_percentile_value = Column(Float)
-    highest_percentile_value = Column(Float)
-    results_detail = Column(JSON)
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    goal_id = Column(String, primary_key=True, index=True)
+    plan_id = Column(String, ForeignKey("financial_plans.plan_id"), nullable=False)
+    client_id = Column(String, ForeignKey("clients.client_id"), nullable=False)
+    goal_type = Column(String, nullable=False, default=GoalType.OTHER.value)
+    goal_name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    target_date = Column(Date, nullable=True)
+    target_amount = Column(Float, nullable=True, default=0.0)
+    current_value = Column(Float, nullable=True, default=0.0)
+    monthly_contribution = Column(Float, nullable=True, default=0.0)
+    projected_value = Column(Float, nullable=True, default=0.0)
+    funding_percentage = Column(Float, nullable=True, default=0.0)
+    priority = Column(Integer, nullable=True, default=5)  # 1-10
+    status = Column(String, nullable=False, default=GoalStatus.ON_TRACK.value)
+    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    financial_plan = relationship("FinancialPlan", back_populates="monte_carlos")
-    scenario = relationship("Scenario", back_populates="monte_carlos")
+    plan = relationship("FinancialPlan", back_populates="goals")
+    
+    # Relationship to V2 models (viewonly, no back_populates)
+    client = relationship("Client", foreign_keys=[client_id], viewonly=True)
 
-class Projection(Base):
-    """
-    Projection model for storing financial projections by year
-    """
-    __tablename__ = "projections"
-    
-    id = Column(String, primary_key=True)
-    plan_id = Column(String, ForeignKey('financial_plans.id'), nullable=False)
-    year = Column(Integer, nullable=False)
-    assets = Column(Float)
-    liabilities = Column(Float)
-    net_worth = Column(Float)
-    income = Column(Float)
-    expenses = Column(Float)
-    cash_flow = Column(Float)
-    
-    # Timestamp
-    created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationship
-    financial_plan = relationship("FinancialPlan", back_populates="projections")
 
-# class TaxPlan(Base):
-#     """
-#     TaxPlan model for storing tax planning data
-#     """
-#     __tablename__ = "tax_plans"
+class Scenario(Base):
+    """Scenario Model - What-if analysis"""
+    __tablename__ = "scenarios"
+    __table_args__ = {'extend_existing': True}
     
-#     id = Column(String, primary_key=True)
-#     plan_id = Column(String, ForeignKey('financial_plans.id'), nullable=False)
-#     client_id = Column(String, ForeignKey("clients.id"), nullable=False, index=True)
+    scenario_id = Column(String, primary_key=True, index=True)
+    plan_id = Column(String, ForeignKey("financial_plans.plan_id"), nullable=False)
+    scenario_name = Column(String, nullable=False)
+    scenario_type = Column(String, nullable=False, default=ScenarioType.CUSTOM.value)
+    description = Column(Text, nullable=True)
+    assumptions = Column(Text, nullable=True)  # JSON string of assumptions
+    results = Column(Text, nullable=True)  # JSON string of results
+    status = Column(String, nullable=False, default=ScenarioStatus.ACTIVE.value)
+    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-#     # Tax information
-#     current_tax_rate = Column(Float)
-#     projected_tax_rate = Column(Float)
-#     taxable_income = Column(Float)
-#     deductions = Column(Float)
-#     tax_credits = Column(Float)
-#     estimated_tax_liability = Column(Float)
-    
-#     # Tax saving strategies stored as JSON
-#     tax_saving_strategies = Column(JSON)
-    
-#     # Timestamps
-#     created_at = Column(DateTime, default=datetime.utcnow)
-#     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-#     # Relationships
-#     financial_tax_deductions = relationship("FinancialTaxDeduction", back_populates="tax_plan", cascade="all, delete-orphan")
-#     tax_credits_rel = relationship("TaxCredit", back_populates="tax_plan", cascade="all, delete-orphan")
-#     financial_plan = relationship("FinancialPlan", back_populates="tax_plans")
+    # Relationships
+    plan = relationship("FinancialPlan", back_populates="scenarios")
 
-# class FinancialTaxDeduction(Base):  
-#     """
-#     FinancialTaxDeduction model for storing tax deduction information in financial plans
-#     """
-#     __tablename__ = "financial_tax_deductions"
-    
-#     id = Column(String, primary_key=True)
-#     tax_plan_id = Column(String, ForeignKey('tax_plans.id'), nullable=False)
-#     name = Column(String, nullable=False)
-#     description = Column(Text)
-#     amount = Column(Float)
-#     category = Column(String)  # e.g., "Standard", "Itemized", etc.
-#     is_available = Column(Boolean, default=True)
-    
-#     # Timestamps
-#     created_at = Column(DateTime, default=datetime.utcnow)
-#     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-#     # Relationship
-#     tax_plan = relationship("TaxPlan", back_populates="financial_tax_deductions")
-
-# class TaxCredit(Base):
-#     """
-#     TaxCredit model for storing tax credit information
-#     """
-#     __tablename__ = "tax_credits"
-    
-#     id = Column(String, primary_key=True)
-#     tax_plan_id = Column(String, ForeignKey('tax_plans.id'), nullable=False)
-#     name = Column(String, nullable=False)
-#     description = Column(Text)
-#     amount = Column(Float)
-#     category = Column(String)  # e.g., "Child Tax Credit", "Education Credit", etc.
-#     is_refundable = Column(Boolean, default=False)
-#     is_available = Column(Boolean, default=True)
-    
-#     # Timestamps
-#     created_at = Column(DateTime, default=datetime.utcnow)
-#     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-#     # Relationship
-#     tax_plan = relationship("TaxPlan", back_populates="tax_credits_rel")
 
 class CashFlow(Base):
-    """
-    CashFlow model for storing cash flow information
-    """
+    """Cash Flow Model - Projections over time"""
     __tablename__ = "cash_flows"
+    __table_args__ = {'extend_existing': True}
     
-    id = Column(String, primary_key=True)
-    plan_id = Column(String, ForeignKey('financial_plans.id'), nullable=False)
-    scenario_id = Column(String, ForeignKey('scenarios.id'), nullable=True)
-    
-    # Income
-    salary_income = Column(Float, default=0.0)
-    business_income = Column(Float, default=0.0)
-    investment_income = Column(Float, default=0.0)
-    rental_income = Column(Float, default=0.0)
-    other_income = Column(Float, default=0.0)
-    total_income = Column(Float, default=0.0)
-    
-    # Expenses
-    housing_expense = Column(Float, default=0.0)
-    utilities_expense = Column(Float, default=0.0)
-    food_expense = Column(Float, default=0.0)
-    transportation_expense = Column(Float, default=0.0)
-    healthcare_expense = Column(Float, default=0.0)
-    insurance_expense = Column(Float, default=0.0)
-    debt_payments = Column(Float, default=0.0)
-    entertainment_expense = Column(Float, default=0.0)
-    personal_expense = Column(Float, default=0.0)
-    other_expense = Column(Float, default=0.0)
-    total_expenses = Column(Float, default=0.0)
-    
-    # Net Cash Flow
-    net_cash_flow = Column(Float, default=0.0)
-    
-    # Time period
-    period = Column(String)  # e.g., "Monthly", "Annual"
-    year = Column(Integer)  # Which year this cash flow represents
-    
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    cash_flow_id = Column(String, primary_key=True, index=True)
+    plan_id = Column(String, ForeignKey("financial_plans.plan_id"), nullable=False)
+    year = Column(Integer, nullable=False)
+    month = Column(Integer, nullable=True)  # 1-12, null means annual
+    total_income = Column(Float, nullable=False, default=0.0)
+    total_expenses = Column(Float, nullable=False, default=0.0)
+    net_cash_flow = Column(Float, nullable=False, default=0.0)
+    cumulative_cash_flow = Column(Float, nullable=True, default=0.0)
+    inflation_rate = Column(Float, nullable=True, default=0.0)
+    status = Column(String, nullable=False, default="Active")
+    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    financial_plan = relationship("FinancialPlan", back_populates="cash_flows")
-    scenario = relationship("Scenario", back_populates="cash_flows")
+    plan = relationship("FinancialPlan", back_populates="cash_flows")
 
-class PlanIncome(Base):
-    """
-    Income model for storing income sources in financial plan models
-    Note: This is different from the Income model in spending.py
-    """
-    __tablename__ = "incomes"
+
+class NetWorth(Base):
+    """Net Worth Model - Snapshots over time"""
+    __tablename__ = "net_worths"
+    __table_args__ = {'extend_existing': True}
     
-    id = Column(String, primary_key=True)
-    plan_id = Column(String, ForeignKey('financial_plans.id'), nullable=False)
-    name = Column(String, nullable=False)
-    income_type = Column(String)  # e.g., "Salary", "Dividend", "Rental", etc.
-    amount = Column(Float)
-    frequency = Column(String)  # e.g., "Monthly", "Annual", etc.
-    start_date = Column(Date)
-    end_date = Column(Date)
-    growth_rate = Column(Float)
-    details = Column(JSON)  # Additional details specific to income type
+    net_worth_id = Column(String, primary_key=True, index=True)
+    plan_id = Column(String, ForeignKey("financial_plans.plan_id"), nullable=False)
+    household_id = Column(String, ForeignKey("households.household_id"), nullable=True)
+    as_of_date = Column(Date, nullable=False)
+    total_assets = Column(Float, nullable=False, default=0.0)
+    total_liabilities = Column(Float, nullable=False, default=0.0)
+    net_worth = Column(Float, nullable=False, default=0.0)
+    liquid_assets = Column(Float, nullable=True, default=0.0)
+    invested_assets = Column(Float, nullable=True, default=0.0)
+    use_assets = Column(Float, nullable=True, default=0.0)  # Home, cars, etc.
+    status = Column(String, nullable=False, default="Active")
+    created_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    modified_date = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Relationships
+    plan = relationship("FinancialPlan", back_populates="net_worths")
     
-    # Updated relationship
-    financial_plan = relationship("FinancialPlan", back_populates="income_items")
+    # Relationship to V2 models (viewonly, no back_populates)
+    household = relationship("Household", foreign_keys=[household_id], viewonly=True)
