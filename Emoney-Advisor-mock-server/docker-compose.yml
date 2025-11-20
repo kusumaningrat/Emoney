@@ -1,47 +1,59 @@
-version: '3'
-
-name: Emoney-Advisor-mock-server
+name: emoney-advisor-mock-server
 
 services:
   api:
     build: .
     ports:
-      - "6820:6820"
+      - "6820:6820"  # Fixed: Both host and container use 6820
     volumes:
       - .:/app
     environment:
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/crm
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/emoney_mock
+      - API_HOST=0.0.0.0
+      - API_PORT=6820
+      - LOG_LEVEL=info
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6820/emoney/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   postgres:
-    image: postgres:14
+    image: postgres:15-alpine
     ports:
-      - "5432:5432"  # Changed: PostgreSQL uses port 5432
+      - "5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=crm
+      - POSTGRES_DB=emoney_mock
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d emoney_mock"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
   
-  pgadmin:
-    image: dpage/pgadmin4
+  pgadmin:  # Fixed: was "pgladmin"
+    image: dpage/pgadmin4:latest  # Fixed: was "pgladmin4"
     ports:
       - "6821:80"
     environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@example.com
-      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com  # Fixed: was admin@emoney.local
+      - PGADMIN_DEFAULT_PASSWORD=admin123
+      - PGADMIN_CONFIG_SERVER_MODE=False
     depends_on:
       - postgres
+    restart: unless-stopped
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
 
 volumes:
   postgres_data:
+  pgadmin_data:

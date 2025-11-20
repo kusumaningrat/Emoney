@@ -1,4 +1,4 @@
-# seeders/identity_seeder.py
+# seeders/identity_seeder.py - FIXED for PascalCase field names
 
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
@@ -48,25 +48,25 @@ class IdentitySeeder:
         
         # Root offices (no parent)
         root_offices = [
-            {"office_id": "OFF-001", "office_name": "Headquarters", "city": "New York", "state": "NY"},
-            {"office_id": "OFF-002", "office_name": "West Coast Division", "city": "San Francisco", "state": "CA"},
-            {"office_id": "OFF-003", "office_name": "Midwest Division", "city": "Chicago", "state": "IL"},
+            {"OfficeID": "OFF-001", "OfficeName": "Headquarters", "City": "New York", "State": "NY"},
+            {"OfficeID": "OFF-002", "OfficeName": "West Coast Division", "City": "San Francisco", "State": "CA"},
+            {"OfficeID": "OFF-003", "OfficeName": "Midwest Division", "City": "Chicago", "State": "IL"},
         ]
         
         for office_data in root_offices:
             office = Office(
-                office_id=office_data["office_id"],
-                office_name=office_data["office_name"],
-                parent_office_id=None,
-                office_path=f"/{office_data['office_name']}",
-                status=OfficeStatus.ACTIVE.value,
-                address=fake.street_address(),
-                city=office_data["city"],
-                state=office_data["state"],
-                zip_code=fake.zipcode(),
-                phone=fake.phone_number(),
-                created_date=datetime.utcnow(),
-                modified_date=datetime.utcnow()
+                OfficeID=office_data["OfficeID"],
+                OfficeName=office_data["OfficeName"],
+                ParentOfficeID=None,
+                OfficePath=f"/{office_data['OfficeName']}",
+                Status=OfficeStatus.ACTIVE.value,
+                Address=fake.street_address(),
+                City=office_data["City"],
+                State=office_data["State"],
+                ZipCode=fake.zipcode(),
+                Phone=fake.phone_number(),
+                CreatedDate=datetime.utcnow(),
+                ModifiedDate=datetime.utcnow()
             )
             self.db.add(office)
             self.created_data["offices"].append(office)
@@ -75,37 +75,37 @@ class IdentitySeeder:
         
         # Child offices
         child_offices = [
-            {"office_id": "OFF-004", "office_name": "Manhattan Branch", "parent_id": "OFF-001", "city": "New York", "state": "NY"},
-            {"office_id": "OFF-005", "office_name": "Brooklyn Branch", "parent_id": "OFF-001", "city": "Brooklyn", "state": "NY"},
-            {"office_id": "OFF-006", "office_name": "San Jose Office", "parent_id": "OFF-002", "city": "San Jose", "state": "CA"},
-            {"office_id": "OFF-007", "office_name": "Los Angeles Office", "parent_id": "OFF-002", "city": "Los Angeles", "state": "CA"},
-            {"office_id": "OFF-008", "office_name": "Seattle Office", "parent_id": "OFF-002", "city": "Seattle", "state": "WA"},
-            {"office_id": "OFF-009", "office_name": "Milwaukee Branch", "parent_id": "OFF-003", "city": "Milwaukee", "state": "WI"},
-            {"office_id": "OFF-010", "office_name": "Detroit Branch", "parent_id": "OFF-003", "city": "Detroit", "state": "MI"},
-            {"office_id": "OFF-011", "office_name": "South Region", "parent_id": None, "city": "Atlanta", "state": "GA"},
-            {"office_id": "OFF-012", "office_name": "Miami Office", "parent_id": "OFF-011", "city": "Miami", "state": "FL"},
-            {"office_id": "OFF-013", "office_name": "Dallas Office", "parent_id": "OFF-011", "city": "Dallas", "state": "TX"},
-            {"office_id": "OFF-014", "office_name": "Houston Office", "parent_id": "OFF-011", "city": "Houston", "state": "TX"},
-            {"office_id": "OFF-015", "office_name": "Boston Office", "parent_id": "OFF-001", "city": "Boston", "state": "MA"},
+            {"OfficeID": "OFF-004", "OfficeName": "Manhattan Branch", "ParentOfficeID": "OFF-001", "City": "New York", "State": "NY"},
+            {"OfficeID": "OFF-005", "OfficeName": "Brooklyn Branch", "ParentOfficeID": "OFF-001", "City": "Brooklyn", "State": "NY"},
+            {"OfficeID": "OFF-006", "OfficeName": "San Jose Office", "ParentOfficeID": "OFF-002", "City": "San Jose", "State": "CA"},
+            {"OfficeID": "OFF-007", "OfficeName": "Los Angeles Office", "ParentOfficeID": "OFF-002", "City": "Los Angeles", "State": "CA"},
+            {"OfficeID": "OFF-008", "OfficeName": "Seattle Office", "ParentOfficeID": "OFF-002", "City": "Seattle", "State": "WA"},
+            {"OfficeID": "OFF-009", "OfficeName": "Milwaukee Branch", "ParentOfficeID": "OFF-003", "City": "Milwaukee", "State": "WI"},
+            {"OfficeID": "OFF-010", "OfficeName": "Detroit Branch", "ParentOfficeID": "OFF-003", "City": "Detroit", "State": "MI"},
+            {"OfficeID": "OFF-011", "OfficeName": "South Region", "ParentOfficeID": None, "City": "Atlanta", "State": "GA"},
+            {"OfficeID": "OFF-012", "OfficeName": "Miami Office", "ParentOfficeID": "OFF-011", "City": "Miami", "State": "FL"},
+            {"OfficeID": "OFF-013", "OfficeName": "Dallas Office", "ParentOfficeID": "OFF-011", "City": "Dallas", "State": "TX"},
+            {"OfficeID": "OFF-014", "OfficeName": "Houston Office", "ParentOfficeID": "OFF-011", "City": "Houston", "State": "TX"},
+            {"OfficeID": "OFF-015", "OfficeName": "Boston Office", "ParentOfficeID": "OFF-001", "City": "Boston", "State": "MA"},
         ]
         
         for office_data in child_offices:
-            parent = next((o for o in self.created_data["offices"] if o.office_id == office_data["parent_id"]), None) if office_data["parent_id"] else None
-            office_path = f"{parent.office_path}/{office_data['office_name']}" if parent else f"/{office_data['office_name']}"
+            parent = next((o for o in self.created_data["offices"] if o.OfficeID == office_data["ParentOfficeID"]), None) if office_data["ParentOfficeID"] else None
+            office_path = f"{parent.OfficePath}/{office_data['OfficeName']}" if parent else f"/{office_data['OfficeName']}"
             
             office = Office(
-                office_id=office_data["office_id"],
-                office_name=office_data["office_name"],
-                parent_office_id=office_data["parent_id"],
-                office_path=office_path,
-                status=OfficeStatus.ACTIVE.value,
-                address=fake.street_address(),
-                city=office_data["city"],
-                state=office_data["state"],
-                zip_code=fake.zipcode(),
-                phone=fake.phone_number(),
-                created_date=datetime.utcnow(),
-                modified_date=datetime.utcnow()
+                OfficeID=office_data["OfficeID"],
+                OfficeName=office_data["OfficeName"],
+                ParentOfficeID=office_data["ParentOfficeID"],
+                OfficePath=office_path,
+                Status=OfficeStatus.ACTIVE.value,
+                Address=fake.street_address(),
+                City=office_data["City"],
+                State=office_data["State"],
+                ZipCode=fake.zipcode(),
+                Phone=fake.phone_number(),
+                CreatedDate=datetime.utcnow(),
+                ModifiedDate=datetime.utcnow()
             )
             self.db.add(office)
             self.created_data["offices"].append(office)
@@ -117,27 +117,27 @@ class IdentitySeeder:
         print("Seeding roles...")
         
         roles_data = [
-            {"role_id": "ROLE-001", "role_name": "Administrator", "role_type": "System", "description": "Full system access"},
-            {"role_id": "ROLE-002", "role_name": "Senior Advisor", "role_type": "Advisor", "description": "Senior financial advisor"},
-            {"role_id": "ROLE-003", "role_name": "Financial Advisor", "role_type": "Advisor", "description": "Standard financial advisor"},
-            {"role_id": "ROLE-004", "role_name": "Junior Advisor", "role_type": "Advisor", "description": "Entry-level advisor"},
-            {"role_id": "ROLE-005", "role_name": "Financial Planner", "role_type": "Planner", "description": "Financial planning specialist"},
-            {"role_id": "ROLE-006", "role_name": "Compliance Officer", "role_type": "Compliance", "description": "Compliance and regulatory oversight"},
-            {"role_id": "ROLE-007", "role_name": "Operations Manager", "role_type": "Operations", "description": "Operations management"},
-            {"role_id": "ROLE-008", "role_name": "Client Service Rep", "role_type": "Support", "description": "Client support services"},
-            {"role_id": "ROLE-009", "role_name": "Investment Specialist", "role_type": "Investment", "description": "Investment management"},
-            {"role_id": "ROLE-010", "role_name": "Portfolio Manager", "role_type": "Investment", "description": "Portfolio management"},
+            {"RoleID": "ROLE-001", "RoleName": "Administrator", "RoleType": "System", "Description": "Full system access"},
+            {"RoleID": "ROLE-002", "RoleName": "Senior Advisor", "RoleType": "Advisor", "Description": "Senior financial advisor"},
+            {"RoleID": "ROLE-003", "RoleName": "Financial Advisor", "RoleType": "Advisor", "Description": "Standard financial advisor"},
+            {"RoleID": "ROLE-004", "RoleName": "Junior Advisor", "RoleType": "Advisor", "Description": "Entry-level advisor"},
+            {"RoleID": "ROLE-005", "RoleName": "Financial Planner", "RoleType": "Planner", "Description": "Financial planning specialist"},
+            {"RoleID": "ROLE-006", "RoleName": "Compliance Officer", "RoleType": "Compliance", "Description": "Compliance and regulatory oversight"},
+            {"RoleID": "ROLE-007", "RoleName": "Operations Manager", "RoleType": "Operations", "Description": "Operations management"},
+            {"RoleID": "ROLE-008", "RoleName": "Client Service Rep", "RoleType": "Support", "Description": "Client support services"},
+            {"RoleID": "ROLE-009", "RoleName": "Investment Specialist", "RoleType": "Investment", "Description": "Investment management"},
+            {"RoleID": "ROLE-010", "RoleName": "Portfolio Manager", "RoleType": "Investment", "Description": "Portfolio management"},
         ]
         
         for role_data in roles_data:
             role = Role(
-                role_id=role_data["role_id"],
-                role_name=role_data["role_name"],
-                description=role_data["description"],
-                role_type=role_data["role_type"],
-                status=RoleStatus.ACTIVE.value,
-                created_date=datetime.utcnow(),
-                modified_date=datetime.utcnow()
+                RoleID=role_data["RoleID"],
+                RoleName=role_data["RoleName"],
+                Description=role_data["Description"],
+                RoleType=role_data["RoleType"],
+                Status=RoleStatus.ACTIVE.value,
+                CreatedDate=datetime.utcnow(),
+                ModifiedDate=datetime.utcnow()
             )
             self.db.add(role)
             self.created_data["roles"].append(role)
@@ -160,13 +160,13 @@ class IdentitySeeder:
                         break
                     
                     permission = Permission(
-                        permission_id=f"PERM-{permission_id:03d}",
-                        permission_name=f"{action} {resource}",
-                        permission_code=f"{category.upper()}_{resource.upper()}_{action.upper()}",
-                        category=category,
-                        description=f"Permission to {action.lower()} {resource.lower()}",
-                        status="Active",
-                        created_date=datetime.utcnow()
+                        PermissionID=f"PERM-{permission_id:03d}",
+                        PermissionName=f"{action} {resource}",
+                        PermissionCode=f"{category.upper()}_{resource.upper()}_{action.upper()}",
+                        Category=category,
+                        Description=f"Permission to {action.lower()} {resource.lower()}",
+                        Status="Active",
+                        CreatedDate=datetime.utcnow()
                     )
                     self.db.add(permission)
                     self.created_data["permissions"].append(permission)
@@ -177,7 +177,7 @@ class IdentitySeeder:
         # Assign permissions to roles (many-to-many)
         for role in self.created_data["roles"]:
             # Admins get all permissions
-            if "Administrator" in role.role_name:
+            if "Administrator" in role.RoleName:
                 role.permissions = self.created_data["permissions"]
             # Other roles get subset of permissions
             else:
@@ -199,16 +199,16 @@ class IdentitySeeder:
             username = f"{first_name.lower()}.{last_name.lower()}{i}"
             
             user = User(
-                user_id=f"USR-{i:03d}",
-                username=username,
-                email=f"{username}@emoneyadvisor.com",
-                first_name=first_name,
-                last_name=last_name,
-                status=random.choice([UserStatus.ACTIVE.value] * 9 + [UserStatus.INACTIVE.value]),
-                office_id=random.choice(offices).office_id,
-                created_date=datetime.utcnow() - timedelta(days=random.randint(30, 730)),
-                last_login_date=datetime.utcnow() - timedelta(days=random.randint(0, 30)) if random.random() > 0.2 else None,
-                modified_date=datetime.utcnow() - timedelta(days=random.randint(0, 30))
+                UserID=f"USR-{i:03d}",
+                Username=username,
+                Email=f"{username}@emoneyadvisor.com",
+                FirstName=first_name,
+                LastName=last_name,
+                Status=random.choice([UserStatus.ACTIVE.value] * 9 + [UserStatus.INACTIVE.value]),
+                OfficeID=random.choice(offices).OfficeID,
+                CreatedDate=datetime.utcnow() - timedelta(days=random.randint(30, 730)),
+                LastLoginDate=datetime.utcnow() - timedelta(days=random.randint(0, 30)) if random.random() > 0.2 else None,
+                ModifiedDate=datetime.utcnow() - timedelta(days=random.randint(0, 30))
             )
             
             # Assign 1-3 roles to each user
@@ -247,19 +247,19 @@ class IdentitySeeder:
             access_level = random.choice(access_levels)
             
             sharing_rule = SharingRule(
-                sharing_rule_id=f"SR-{i:03d}",
-                user_id=user.user_id,
-                client_id=client_id,
-                access_level=access_level,
-                can_view=True,
-                can_edit=access_level in ["Full", "Limited"],
-                can_delete=access_level == "Full",
-                start_date=start_date,
-                end_date=end_date,
-                status=status,
-                created_date=start_date,
-                created_by=created_by.user_id,
-                modified_date=datetime.utcnow() - timedelta(days=random.randint(0, 30))
+                SharingRuleID=f"SR-{i:03d}",
+                UserID=user.UserID,
+                ClientID=client_id,
+                AccessLevel=access_level,
+                CanView=True,
+                CanEdit=access_level in ["Full", "Limited"],
+                CanDelete=access_level == "Full",
+                StartDate=start_date,
+                EndDate=end_date,
+                Status=status,
+                CreatedDate=start_date,
+                CreatedBy=created_by.UserID,
+                ModifiedDate=datetime.utcnow() - timedelta(days=random.randint(0, 30))
             )
             self.db.add(sharing_rule)
             self.created_data["sharing_rules"].append(sharing_rule)
@@ -293,16 +293,16 @@ class IdentitySeeder:
             status = LogonStatus.LOGGED_OUT.value if is_logged_out else LogonStatus.ACTIVE.value
             
             logon = Logon(
-                logon_id=f"LOG-{i:04d}",
-                user_id=user.user_id,
-                logon_type=random.choice([LogonType.USER.value] * 9 + [LogonType.PORTAL.value]),
-                logon_date_time=logon_datetime,
-                logout_date_time=logout_datetime,
-                ip_address=fake.ipv4(),
-                user_agent=fake.user_agent(),
-                session_id=fake.uuid4(),
-                status=status,
-                duration=duration
+                LogonID=f"LOG-{i:04d}",
+                UserID=user.UserID,
+                LogonType=random.choice([LogonType.USER.value] * 9 + [LogonType.PORTAL.value]),
+                LogonDateTime=logon_datetime,
+                LogoutDateTime=logout_datetime,
+                IPAddress=fake.ipv4(),
+                UserAgent=fake.user_agent(),
+                SessionID=fake.uuid4(),
+                Status=status,
+                Duration=duration
             )
             self.db.add(logon)
             self.created_data["logons"].append(logon)
