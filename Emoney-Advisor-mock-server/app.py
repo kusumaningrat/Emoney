@@ -13,8 +13,12 @@ from database import engine, Base, get_db
 # Import all models to ensure they're registered
 from models import identity, client, financial, account, asset
 
-# Import routers
-from routes.entity import router as entity_router
+# Import routers - CORRECTED
+from routes.identity import router as identity_router
+from routes.client import router as client_router
+from routes.financial import router as financial_router
+from routes.account import router as account_router
+from routes.asset import router as asset_router
 from routes.admin import router as admin_router
 from routes.health import router as health_router
 
@@ -109,8 +113,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(entity_router, prefix="/emoney/api/v1")
+# Include routers - CORRECTED
+app.include_router(identity_router, prefix="/emoney/api/v1")
+app.include_router(client_router, prefix="/emoney/api/v1")
+app.include_router(financial_router, prefix="/emoney/api/v1")
+app.include_router(account_router, prefix="/emoney/api/v1")
+app.include_router(asset_router, prefix="/emoney/api/v1")
 app.include_router(admin_router, prefix="/emoney/api/v1")
 app.include_router(health_router, prefix="/emoney/api/v1")
 
@@ -133,6 +141,10 @@ async def startup_event():
         print("📚 API Documentation available at: /docs")
         print("🔧 Admin endpoints available at: /emoney/api/v1/admin/*")
         print("💓 Health checks available at: /emoney/api/v1/health/*")
+        print("👥 Identity endpoints available at: /emoney/api/v1/users, /emoney/api/v1/offices")
+        print("🏠 Client endpoints available at: /emoney/api/v1/clients, /emoney/api/v1/households")
+        print("📊 Financial endpoints available at: /emoney/api/v1/plans, /emoney/api/v1/goals")
+        print("💰 Account endpoints available at: /emoney/api/v1/accounts, /emoney/api/v1/assets")
         
         print("🎉 eMoney Mock Server started successfully!")
         
@@ -192,13 +204,47 @@ async def api_version_info():
             "openapi_schema": "/openapi.json"
         },
         "endpoints": {
-            "entities": {
-                "description": "Core business entity endpoints",
+            "identity": {
+                "description": "V1 - Identity & Access Management",
                 "examples": [
                     "GET /emoney/api/v1/users",
-                    "GET /emoney/api/v1/clients", 
+                    "GET /emoney/api/v1/offices",
+                    "GET /emoney/api/v1/roles",
+                    "GET /emoney/api/v1/permissions"
+                ]
+            },
+            "clients": {
+                "description": "V2 - Client & Household Management",
+                "examples": [
+                    "GET /emoney/api/v1/clients",
+                    "GET /emoney/api/v1/households/{householdId}",
+                    "GET /emoney/api/v1/contacts",
+                    "GET /emoney/api/v1/relationships"
+                ]
+            },
+            "financial": {
+                "description": "V3 - Financial Planning Core",
+                "examples": [
+                    "GET /emoney/api/v1/plans/{planId}",
+                    "GET /emoney/api/v1/goals",
+                    "GET /emoney/api/v1/scenarios/{scenarioId}",
+                    "GET /emoney/api/v1/cashflow/{planId}"
+                ]
+            },
+            "accounts": {
+                "description": "V4a - Account Management",
+                "examples": [
                     "GET /emoney/api/v1/accounts",
-                    "GET /emoney/api/v1/plans/{planId}"
+                    "GET /emoney/api/v1/accounts/{accountId}/holdings",
+                    "GET /emoney/api/v1/account-types"
+                ]
+            },
+            "assets": {
+                "description": "V4b - Asset Management",
+                "examples": [
+                    "GET /emoney/api/v1/assets",
+                    "GET /emoney/api/v1/assetclasses",
+                    "GET /emoney/api/v1/liabilities"
                 ]
             },
             "admin": {
@@ -219,16 +265,17 @@ async def api_version_info():
             }
         },
         "versions": {
-            "v1": "Identity & Access Management",
-            "v2": "Client & Household Management",
-            "v3": "Financial Planning Core", 
-            "v4": "Account & Asset Management"
+            "v1": "Identity & Access Management (users, offices, roles)",
+            "v2": "Client & Household Management (clients, households, spouses)",
+            "v3": "Financial Planning Core (plans, goals, scenarios)", 
+            "v4": "Account & Asset Management (accounts, assets, liabilities)"
         },
         "quick_start": [
             "1. Seed database: POST /emoney/api/v1/admin/seed?entity_type=all",
             "2. Check status: GET /emoney/api/v1/admin/status", 
             "3. List users: GET /emoney/api/v1/users",
-            "4. List clients: GET /emoney/api/v1/clients"
+            "4. List clients: GET /emoney/api/v1/clients",
+            "5. List accounts: GET /emoney/api/v1/accounts"
         ],
         "authentication": {
             "type": "OAuth 2.0 with JWT",
@@ -287,6 +334,9 @@ if __name__ == "__main__":
     print("📖 API Documentation: http://localhost:8080/docs")
     print("🏥 Health Check: http://localhost:8080/emoney/api/v1/health")
     print("⚙️  Admin Panel: http://localhost:8080/emoney/api/v1/admin/status")
+    print("👥 Users API: http://localhost:8080/emoney/api/v1/users")
+    print("🏠 Clients API: http://localhost:8080/emoney/api/v1/clients")
+    print("💰 Accounts API: http://localhost:8080/emoney/api/v1/accounts")
     
     uvicorn.run(
         "app:app",
