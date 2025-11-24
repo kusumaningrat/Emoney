@@ -12,7 +12,6 @@ from services.client import (
 )
 
 router = APIRouter(
-    prefix="/api/v1",
     tags=["eMoney Client & Household Management"],
     dependencies=[]
 )

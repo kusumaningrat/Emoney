@@ -9,7 +9,6 @@ from models.asset import Asset, AssetClass, Liability
 from services.asset import AssetService, AssetClassService, LiabilityService
 
 router = APIRouter(
-    prefix="/api/v1",
     tags=["eMoney Asset Management"],
     dependencies=[]
 )
@@ -324,7 +323,7 @@ def get_liability_schedule(
     }
 
 # ============================================================================
-# COMPLEX DATA EXTRACTION ENDPOINTS
+# COMPLEX DATA EXTRACTION ENDPOINTS (matching eMoney documentation)
 # ============================================================================
 
 @router.get("/households/{householdId}/assets")
@@ -488,65 +487,3 @@ def get_client_net_worth(
         }
     
     return result
-
-# ============================================================================
-# ANALYTICS & REPORTING ENDPOINTS
-# ============================================================================
-
-@router.get("/analytics/assets")
-def get_asset_analytics(
-    db: Session = Depends(get_db)
-):
-    """Get asset analytics"""
-    service = AssetService()
-    
-    analytics = {
-        "total_assets": service.count_all(db),
-        "active_assets": service.count_by_status(db, "Active"),
-        "by_asset_class": service.count_by_asset_class(db),
-        "total_value": service.get_total_value_all_assets(db),
-        "average_asset_value": service.get_average_asset_value(db),
-        "top_holdings_by_value": service.get_top_holdings_by_value(db, limit=10),
-        "most_held_securities": service.get_most_held_securities(db, limit=10),
-        "unrealized_gains_losses": service.get_unrealized_gains_summary(db)
-    }
-    
-    return analytics
-
-@router.get("/analytics/asset-classes")
-def get_asset_class_analytics(
-    db: Session = Depends(get_db)
-):
-    """Get asset class analytics"""
-    service = AssetClassService()
-    
-    analytics = {
-        "total_asset_classes": service.count_all(db),
-        "active_asset_classes": service.count_by_status(db, "Active"),
-        "by_category": service.count_by_category(db),
-        "by_risk_level": service.count_by_risk_level(db),
-        "allocation_summary": service.get_allocation_summary(db),
-        "performance_by_class": service.get_performance_by_class(db)
-    }
-    
-    return analytics
-
-@router.get("/analytics/liabilities")
-def get_liability_analytics(
-    db: Session = Depends(get_db)
-):
-    """Get liability analytics"""
-    service = LiabilityService()
-    
-    analytics = {
-        "total_liabilities": service.count_all(db),
-        "active_liabilities": service.count_by_status(db, "Active"),
-        "by_liability_type": service.count_by_liability_type(db),
-        "by_lender": service.count_by_lender(db),
-        "total_current_balance": service.get_total_current_balance(db),
-        "total_monthly_payments": service.get_total_monthly_payments(db),
-        "average_interest_rate": service.get_average_interest_rate(db),
-        "debt_to_income_ratios": service.get_debt_ratios(db)
-    }
-    
-    return analytics

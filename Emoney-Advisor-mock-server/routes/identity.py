@@ -12,7 +12,6 @@ from services.identity import (
 )
 
 router = APIRouter(
-    prefix="/api/v1",
     tags=["eMoney Identity & Access Management"],
     dependencies=[]
 )

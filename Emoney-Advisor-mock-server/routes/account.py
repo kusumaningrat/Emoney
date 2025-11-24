@@ -9,7 +9,6 @@ from models.account import Account, AccountType
 from services.account import AccountService, AccountTypeService
 
 router = APIRouter(
-    prefix="/api/v1",
     tags=["eMoney Account Management"],
     dependencies=[]
 )

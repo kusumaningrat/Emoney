@@ -12,7 +12,6 @@ from services.financial import (
 )
 
 router = APIRouter(
-    prefix="/api/v1",
     tags=["eMoney Financial Planning Core"],
     dependencies=[]
 )

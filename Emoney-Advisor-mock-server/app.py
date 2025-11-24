@@ -13,7 +13,7 @@ from database import engine, Base, get_db
 # Import all models to ensure they're registered
 from models import identity, client, financial, account, asset
 
-# Import routers - CORRECTED
+# Import routers - UPDATED: Remove prefix from router includes
 from routes.identity import router as identity_router
 from routes.client import router as client_router
 from routes.financial import router as financial_router
@@ -21,9 +21,6 @@ from routes.account import router as account_router
 from routes.asset import router as asset_router
 from routes.admin import router as admin_router
 from routes.health import router as health_router
-
-# Auth dependencies (if needed)
-# from auth.dependencies import get_current_user
 
 # Create FastAPI application
 app = FastAPI(
@@ -113,14 +110,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers - CORRECTED
-app.include_router(identity_router, prefix="/emoney/api/v1")
-app.include_router(client_router, prefix="/emoney/api/v1")
-app.include_router(financial_router, prefix="/emoney/api/v1")
-app.include_router(account_router, prefix="/emoney/api/v1")
-app.include_router(asset_router, prefix="/emoney/api/v1")
-app.include_router(admin_router, prefix="/emoney/api/v1")
-app.include_router(health_router, prefix="/emoney/api/v1")
+# Include routers - UPDATED: Removed /emoney/api/v1 prefix to match eMoney documentation
+app.include_router(identity_router)
+app.include_router(client_router)
+app.include_router(financial_router)
+app.include_router(account_router)
+app.include_router(asset_router)
+# Keep admin and health endpoints with prefix for server management
+app.include_router(admin_router, prefix="/admin")
+app.include_router(health_router, prefix="/health")
 
 # Create database tables on startup
 @app.on_event("startup")
@@ -139,12 +137,12 @@ async def startup_event():
         # Log available endpoints
         print("✅ Database tables created successfully")
         print("📚 API Documentation available at: /docs")
-        print("🔧 Admin endpoints available at: /emoney/api/v1/admin/*")
-        print("💓 Health checks available at: /emoney/api/v1/health/*")
-        print("👥 Identity endpoints available at: /emoney/api/v1/users, /emoney/api/v1/offices")
-        print("🏠 Client endpoints available at: /emoney/api/v1/clients, /emoney/api/v1/households")
-        print("📊 Financial endpoints available at: /emoney/api/v1/plans, /emoney/api/v1/goals")
-        print("💰 Account endpoints available at: /emoney/api/v1/accounts, /emoney/api/v1/assets")
+        print("🔧 Admin endpoints available at: /admin/*")
+        print("💓 Health checks available at: /health/*")
+        print("👥 Identity endpoints available at: /users, /offices")
+        print("🏠 Client endpoints available at: /clients, /households")
+        print("📊 Financial endpoints available at: /plans, /goals")
+        print("💰 Account endpoints available at: /accounts, /assets")
         
         print("🎉 eMoney Mock Server started successfully!")
         
@@ -170,22 +168,10 @@ async def root():
     return RedirectResponse(url="/docs")
 
 
-@app.get("/emoney", include_in_schema=False)
-async def emoney_root():
-    """Redirect to API documentation from eMoney base path."""
-    return RedirectResponse(url="/docs")
-
-
-@app.get("/emoney/api", include_in_schema=False)
-async def emoney_api_root():
-    """Redirect to API documentation from API base path."""
-    return RedirectResponse(url="/docs")
-
-
-@app.get("/emoney/api/v1", tags=["Root"], summary="API Version Information")
-async def api_version_info():
+@app.get("/api-info", tags=["Root"], summary="API Information")
+async def api_info():
     """
-    Get information about this API version and available endpoints.
+    Get information about this API and available endpoints.
     
     **Returns:**
     - API version information
@@ -197,7 +183,7 @@ async def api_version_info():
         "api_version": "1.0",
         "service": "eMoney Advisor Mock Server",
         "description": "Mock implementation of eMoney Advisor API for development and testing",
-        "base_url": "/emoney/api/v1",
+        "base_url": "/",
         "documentation": {
             "swagger_ui": "/docs",
             "redoc": "/redoc",
@@ -207,60 +193,60 @@ async def api_version_info():
             "identity": {
                 "description": "V1 - Identity & Access Management",
                 "examples": [
-                    "GET /emoney/api/v1/users",
-                    "GET /emoney/api/v1/offices",
-                    "GET /emoney/api/v1/roles",
-                    "GET /emoney/api/v1/permissions"
+                    "GET /users",
+                    "GET /offices",
+                    "GET /roles",
+                    "GET /permissions"
                 ]
             },
             "clients": {
                 "description": "V2 - Client & Household Management",
                 "examples": [
-                    "GET /emoney/api/v1/clients",
-                    "GET /emoney/api/v1/households/{householdId}",
-                    "GET /emoney/api/v1/contacts",
-                    "GET /emoney/api/v1/relationships"
+                    "GET /clients",
+                    "GET /households/{householdId}",
+                    "GET /contacts",
+                    "GET /relationships"
                 ]
             },
             "financial": {
                 "description": "V3 - Financial Planning Core",
                 "examples": [
-                    "GET /emoney/api/v1/plans/{planId}",
-                    "GET /emoney/api/v1/goals",
-                    "GET /emoney/api/v1/scenarios/{scenarioId}",
-                    "GET /emoney/api/v1/cashflow/{planId}"
+                    "GET /plans/{planId}",
+                    "GET /goals",
+                    "GET /scenarios/{scenarioId}",
+                    "GET /cashflow/{planId}"
                 ]
             },
             "accounts": {
                 "description": "V4a - Account Management",
                 "examples": [
-                    "GET /emoney/api/v1/accounts",
-                    "GET /emoney/api/v1/accounts/{accountId}/holdings",
-                    "GET /emoney/api/v1/account-types"
+                    "GET /accounts",
+                    "GET /accounts/{accountId}/holdings",
+                    "GET /account-types"
                 ]
             },
             "assets": {
                 "description": "V4b - Asset Management",
                 "examples": [
-                    "GET /emoney/api/v1/assets",
-                    "GET /emoney/api/v1/assetclasses",
-                    "GET /emoney/api/v1/liabilities"
+                    "GET /assets",
+                    "GET /assetclasses",
+                    "GET /liabilities"
                 ]
             },
             "admin": {
                 "description": "Database management and seeding",
                 "examples": [
-                    "POST /emoney/api/v1/admin/seed",
-                    "GET /emoney/api/v1/admin/status",
-                    "POST /emoney/api/v1/admin/reset"
+                    "POST /admin/seed",
+                    "GET /admin/status",
+                    "POST /admin/reset"
                 ]
             },
             "health": {
                 "description": "Service monitoring and diagnostics", 
                 "examples": [
-                    "GET /emoney/api/v1/health",
-                    "GET /emoney/api/v1/health/detailed",
-                    "GET /emoney/api/v1/health/database"
+                    "GET /health",
+                    "GET /health/detailed",
+                    "GET /health/database"
                 ]
             }
         },
@@ -271,11 +257,11 @@ async def api_version_info():
             "v4": "Account & Asset Management (accounts, assets, liabilities)"
         },
         "quick_start": [
-            "1. Seed database: POST /emoney/api/v1/admin/seed?entity_type=all",
-            "2. Check status: GET /emoney/api/v1/admin/status", 
-            "3. List users: GET /emoney/api/v1/users",
-            "4. List clients: GET /emoney/api/v1/clients",
-            "5. List accounts: GET /emoney/api/v1/accounts"
+            "1. Seed database: POST /admin/seed?entity_type=all",
+            "2. Check status: GET /admin/status", 
+            "3. List users: GET /users",
+            "4. List clients: GET /clients",
+            "5. List accounts: GET /accounts"
         ],
         "authentication": {
             "type": "OAuth 2.0 with JWT",
@@ -305,7 +291,7 @@ async def internal_error_handler(request, exc):
     return {
         "error": "Internal Server Error",
         "message": "An unexpected error occurred",
-        "suggestion": "Check /emoney/api/v1/health for service status",
+        "suggestion": "Check /health for service status",
         "timestamp": datetime.utcnow().isoformat()
     }
 
@@ -322,7 +308,7 @@ async def log_requests(request, call_next):
     process_time = (datetime.utcnow() - start_time).total_seconds()
     
     # Log request info (customize as needed)
-    if request.url.path.startswith("/emoney/api/v1"):
+    if not request.url.path.startswith("/docs") and not request.url.path.startswith("/openapi.json"):
         print(f"📝 {request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s")
     
     return response
@@ -332,11 +318,11 @@ async def log_requests(request, call_next):
 if __name__ == "__main__":
     print("🔧 Starting development server...")
     print("📖 API Documentation: http://localhost:8080/docs")
-    print("🏥 Health Check: http://localhost:8080/emoney/api/v1/health")
-    print("⚙️  Admin Panel: http://localhost:8080/emoney/api/v1/admin/status")
-    print("👥 Users API: http://localhost:8080/emoney/api/v1/users")
-    print("🏠 Clients API: http://localhost:8080/emoney/api/v1/clients")
-    print("💰 Accounts API: http://localhost:8080/emoney/api/v1/accounts")
+    print("🏥 Health Check: http://localhost:8080/health")
+    print("⚙️  Admin Panel: http://localhost:8080/admin/status")
+    print("👥 Users API: http://localhost:8080/users")
+    print("🏠 Clients API: http://localhost:8080/clients")
+    print("💰 Accounts API: http://localhost:8080/accounts")
     
     uvicorn.run(
         "app:app",
