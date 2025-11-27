@@ -1,6 +1,6 @@
 # 🏗️ eMoney Advisor Services Suite - Complete Documentation with Example JSON Responses
 
-The eMoney Advisor Services Suite consists of specialized microservices for extracting data from eMoney Advisor platform. Each service is designed to handle specific functional areas with multiple related objects per domain
+The eMoney Advisor Services Suite consists of specialized microservices for extracting data from eMoney Advisor platform. Each service is designed to handle specific functional areas with multiple related objects per domain.
 
 ---
 
