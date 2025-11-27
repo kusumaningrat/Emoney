@@ -34,9 +34,8 @@
         }   
 
         constraint {
-            attribute = "${meta.duty}"
-            operator  = "set_contains_any"
-            value     = "Worker-02"
+          attribute = "${attr.unique.hostname}"
+          value     = "Worker-02" 
         }
 
         task "emoney-advisor-mock-server" {
