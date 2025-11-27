@@ -36,7 +36,7 @@
         constraint {
             attribute = "${meta.duty}"
             operator  = "set_contains_any"
-            value     = "glynac-db"
+            value     = "Worker-02"
         }
 
         task "emoney-advisor-mock-server" {
