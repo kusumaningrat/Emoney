@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from database import get_db
 from models.identity import User, Office, Role, Permission, SharingRule, Logon
 from services.identity import (
@@ -446,13 +446,37 @@ def get_logons(
     # Apply date filtering if provided
     if startDate or endDate:
         filtered_logons = []
+        
+        # Parse date strings once
+        start_dt = None
+        end_dt = None
+        
+        try:
+            if startDate:
+                start_dt = datetime.fromisoformat(startDate.replace('Z', '+00:00'))
+            if endDate:
+                end_dt = datetime.fromisoformat(endDate.replace('Z', '+00:00'))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid date format: {str(e)}")
+        
         for logon in logons:
+            # Check if LogonDateTime exists
+            if not logon.LogonDateTime:
+                continue
+                
             logon_date = logon.LogonDateTime
-            if startDate and logon_date < datetime.fromisoformat(startDate.replace('Z', '+00:00')):
+            
+            # Make sure we're comparing timezone-aware datetimes
+            if logon_date.tzinfo is None:
+                logon_date = logon_date.replace(tzinfo=timezone.utc)
+            
+            if start_dt and logon_date < start_dt:
                 continue
-            if endDate and logon_date > datetime.fromisoformat(endDate.replace('Z', '+00:00')):
+            if end_dt and logon_date > end_dt:
                 continue
+                
             filtered_logons.append(logon)
+        
         logons = filtered_logons
     
     # Get total count
@@ -487,9 +511,13 @@ def get_logon(
         result['userUsername'] = logon.user.Username
     
     # Calculate session duration if logged out
-    if logon.LogoutDateTime:
-        duration = logon.LogoutDateTime - logon.LogonDateTime
-        result['calculatedDuration'] = int(duration.total_seconds() / 60)  # Duration in minutes
+    if logon.LogoutDateTime and logon.LogonDateTime:
+        try:
+            duration = logon.LogoutDateTime - logon.LogonDateTime
+            result['calculatedDuration'] = int(duration.total_seconds() / 60)  # Duration in minutes
+        except Exception as e:
+            # If calculation fails, just skip it
+            result['calculatedDuration'] = None
     
     return result
 
@@ -537,6 +565,8 @@ def get_user_analytics(
     office_counts = {}
     recent_login_count = 0
     
+    current_time = datetime.now(timezone.utc)
+    
     for user in all_users:
         # Status counts
         status = user.Status or "Unknown"
@@ -548,9 +578,17 @@ def get_user_analytics(
         
         # Recent logins (last 30 days)
         if user.LastLoginDate:
-            days_since_login = (datetime.now() - user.LastLoginDate).days
-            if days_since_login <= 30:
-                recent_login_count += 1
+            try:
+                last_login = user.LastLoginDate
+                if last_login.tzinfo is None:
+                    last_login = last_login.replace(tzinfo=timezone.utc)
+                
+                days_since_login = (current_time - last_login).days
+                if days_since_login <= 30:
+                    recent_login_count += 1
+            except Exception:
+                # Skip if date calculation fails
+                pass
     
     # Role counts
     role_service = RoleService()

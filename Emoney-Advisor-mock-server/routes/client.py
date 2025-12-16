@@ -3,7 +3,8 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
-from datetime import datetime, date
+from datetime import datetime, timezone, date
+from decimal import Decimal
 from database import get_db
 from models.client import Client, Contact, Household, Spouse, Relationship
 from services.client import (
@@ -26,13 +27,13 @@ def model_to_dict(obj):
     for column in obj.__table__.columns:
         value = getattr(obj, column.name)
         # Handle datetime serialization
-        if hasattr(value, 'isoformat'):
+        if isinstance(value, (datetime, date)):
             value = value.isoformat()
         # Handle enum serialization
         elif hasattr(value, 'value'):
             value = value.value
-        # Handle decimal serialization
-        elif hasattr(value, '__float__'):
+        # Handle decimal/numeric serialization
+        elif isinstance(value, Decimal):
             value = float(value)
         result[column.name] = value
     return result
@@ -67,19 +68,30 @@ def get_clients(
     
     # Net worth filtering would require household data
     if netWorth:
-        operator, amount = netWorth.split(":", 1) if ":" in netWorth else ("eq", netWorth)
-        amount = float(amount)
-        filtered_clients = []
-        for client in clients:
-            if client.household and client.household.NetWorth:
-                household_net_worth = float(client.household.NetWorth)
-                if operator == "gt" and household_net_worth > amount:
-                    filtered_clients.append(client)
-                elif operator == "lt" and household_net_worth < amount:
-                    filtered_clients.append(client)
-                elif operator == "eq" and household_net_worth == amount:
-                    filtered_clients.append(client)
-        clients = filtered_clients
+        try:
+            operator, amount = netWorth.split(":", 1) if ":" in netWorth else ("eq", netWorth)
+            amount = float(amount)
+            filtered_clients = []
+            for client in clients:
+                try:
+                    if client.household and client.household.NetWorth:
+                        household_net_worth = float(client.household.NetWorth)
+                        if operator == "gt" and household_net_worth > amount:
+                            filtered_clients.append(client)
+                        elif operator == "lt" and household_net_worth < amount:
+                            filtered_clients.append(client)
+                        elif operator == "eq" and household_net_worth == amount:
+                            filtered_clients.append(client)
+                        elif operator == "gte" and household_net_worth >= amount:
+                            filtered_clients.append(client)
+                        elif operator == "lte" and household_net_worth <= amount:
+                            filtered_clients.append(client)
+                except (ValueError, TypeError, AttributeError):
+                    # Skip clients with invalid net worth data
+                    continue
+            clients = filtered_clients
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid netWorth filter format. Use 'operator:amount' (e.g., 'gt:1000000')")
     
     # Get total count for pagination
     all_clients = service.get_all(db, status=status, advisor_id=advisor)
@@ -161,11 +173,14 @@ def get_client_household(
     if not client:
         raise HTTPException(status_code=404, detail=f"Client {clientId} not found")
     
+    if not client.HouseholdID:
+        raise HTTPException(status_code=404, detail=f"No household found for client {clientId}")
+    
     household_service = HouseholdService()
-    household = household_service.get_by_id(db, client.HouseholdID) if client.HouseholdID else None
+    household = household_service.get_by_id(db, client.HouseholdID)
     
     if not household:
-        raise HTTPException(status_code=404, detail=f"No household found for client {clientId}")
+        raise HTTPException(status_code=404, detail=f"Household {client.HouseholdID} not found")
     
     result = model_to_dict(household)
     
@@ -188,7 +203,10 @@ def get_client_household(
             result['liabilities'] = []  # Version 4
         
         if 'networth' in includes:
-            result['netWorthCalculated'] = float(household.NetWorth) if household.NetWorth else 0
+            try:
+                result['netWorthCalculated'] = float(household.NetWorth) if household.NetWorth else 0.0
+            except (ValueError, TypeError):
+                result['netWorthCalculated'] = 0.0
     
     return result
 
@@ -287,7 +305,10 @@ def get_household(
             result['liabilities'] = []  # Version 4
         
         if 'networth' in includes:
-            result['netWorthCalculated'] = float(household.NetWorth) if household.NetWorth else 0
+            try:
+                result['netWorthCalculated'] = float(household.NetWorth) if household.NetWorth else 0.0
+            except (ValueError, TypeError):
+                result['netWorthCalculated'] = 0.0
     
     return result
 
@@ -306,21 +327,25 @@ def get_household_members(
     
     members = service.get_household_members(db, householdId)
     
-    result = {
-        "householdId": householdId,
-        "members": [model_to_dict(m) for m in members],
-        "total": len(members)
-    }
+    members_data = [model_to_dict(m) for m in members]
     
     # Include spouse information if requested
     if includeSpouses:
         spouse_service = SpouseService()
         for i, member in enumerate(members):
-            spouse = spouse_service.get_by_client_id(db, member.ClientID)
-            if spouse:
-                result["members"][i]["spouse"] = model_to_dict(spouse)
+            try:
+                spouse = spouse_service.get_by_client_id(db, member.ClientID)
+                if spouse:
+                    members_data[i]["spouse"] = model_to_dict(spouse)
+            except Exception:
+                # Skip if spouse lookup fails
+                continue
     
-    return result
+    return {
+        "householdId": householdId,
+        "members": members_data,
+        "total": len(members)
+    }
 
 @router.get("/households/{householdId}/networth")
 def get_household_networth(
@@ -336,19 +361,27 @@ def get_household_networth(
     if not household:
         raise HTTPException(status_code=404, detail=f"Household {householdId} not found")
     
-    net_worth = float(household.NetWorth) if household.NetWorth else 0
+    try:
+        net_worth = float(household.NetWorth) if household.NetWorth else 0.0
+    except (ValueError, TypeError):
+        net_worth = 0.0
+    
+    # Parse or use current date
+    as_of_date = asOfDate
+    if not as_of_date:
+        as_of_date = datetime.now(timezone.utc).isoformat()
     
     result = {
         "householdId": householdId,
         "netWorth": net_worth,
-        "asOfDate": asOfDate or datetime.now().isoformat()
+        "asOfDate": as_of_date
     }
     
     if includeBreakdown:
         # Placeholder for detailed breakdown - would need Account/Asset data
         result["breakdown"] = {
-            "totalAssets": 0,  # Would come from Version 4
-            "totalLiabilities": 0,  # Would come from Version 4
+            "totalAssets": 0.0,      # Would come from Version 4
+            "totalLiabilities": 0.0, # Would come from Version 4
             "netWorth": net_worth,
             "note": "Detailed breakdown requires Account & Asset data (Version 4)"
         }
@@ -563,7 +596,17 @@ def get_household_analytics(
     
     # Calculate statistics
     active_households = [h for h in all_households if h.Status == "Active"]
-    net_worths = [float(h.NetWorth) for h in all_households if h.NetWorth and float(h.NetWorth) > 0]
+    
+    # Safely extract net worths
+    net_worths = []
+    for h in all_households:
+        try:
+            if h.NetWorth:
+                nw = float(h.NetWorth)
+                if nw > 0:
+                    net_worths.append(nw)
+        except (ValueError, TypeError):
+            continue
     
     # Risk tolerance counts
     risk_tolerance_counts = {}
@@ -572,9 +615,9 @@ def get_household_analytics(
         risk_tolerance_counts[risk] = risk_tolerance_counts.get(risk, 0) + 1
     
     # Net worth calculations
-    total_net_worth = sum(net_worths)
-    average_net_worth = total_net_worth / len(net_worths) if net_worths else 0
-    median_net_worth = sorted(net_worths)[len(net_worths)//2] if net_worths else 0
+    total_net_worth = sum(net_worths) if net_worths else 0.0
+    average_net_worth = total_net_worth / len(net_worths) if net_worths else 0.0
+    median_net_worth = sorted(net_worths)[len(net_worths)//2] if net_worths else 0.0
     
     # Net worth distribution
     distribution = {
@@ -619,22 +662,31 @@ def get_client_complete_profile(
     if client.household:
         result['household'] = model_to_dict(client.household)
         # Get household members
-        household_service = HouseholdService()
-        members = household_service.get_household_members(db, client.HouseholdID)
-        result['household']['members'] = [model_to_dict(m) for m in members]
+        try:
+            household_service = HouseholdService()
+            members = household_service.get_household_members(db, client.HouseholdID)
+            result['household']['members'] = [model_to_dict(m) for m in members]
+        except Exception:
+            result['household']['members'] = []
     
     if client.spouse:
         result['spouse'] = model_to_dict(client.spouse)
     
     # Get contacts
-    contact_service = ContactService()
-    contacts = contact_service.get_client_contacts(db, clientId)
-    result['contacts'] = [model_to_dict(c) for c in contacts]
+    try:
+        contact_service = ContactService()
+        contacts = contact_service.get_client_contacts(db, clientId)
+        result['contacts'] = [model_to_dict(c) for c in contacts]
+    except Exception:
+        result['contacts'] = []
     
     # Get relationships
-    relationship_service = RelationshipService()
-    relationships = relationship_service.get_client_relationships(db, clientId)
-    result['relationships'] = [model_to_dict(r) for r in relationships]
+    try:
+        relationship_service = RelationshipService()
+        relationships = relationship_service.get_client_relationships(db, clientId)
+        result['relationships'] = [model_to_dict(r) for r in relationships]
+    except Exception:
+        result['relationships'] = []
     
     # Placeholder for future versions
     result['accounts'] = []    # Version 4
@@ -660,15 +712,23 @@ def get_household_financial_summary(
     result = model_to_dict(household)
     
     # Get all members
-    members = service.get_household_members(db, householdId)
-    result['members'] = [model_to_dict(m) for m in members]
+    try:
+        members = service.get_household_members(db, householdId)
+        result['members'] = [model_to_dict(m) for m in members]
+    except Exception:
+        result['members'] = []
     
     # Calculate net worth
-    result['netWorthCalculated'] = float(household.NetWorth) if household.NetWorth else 0
+    try:
+        net_worth = float(household.NetWorth) if household.NetWorth else 0.0
+    except (ValueError, TypeError):
+        net_worth = 0.0
+    
+    result['netWorthCalculated'] = net_worth
     result['netWorthBreakdown'] = {
-        "totalAssets": 0,      # Would come from Version 4
-        "totalLiabilities": 0, # Would come from Version 4
-        "netWorth": float(household.NetWorth) if household.NetWorth else 0
+        "totalAssets": 0.0,      # Would come from Version 4
+        "totalLiabilities": 0.0, # Would come from Version 4
+        "netWorth": net_worth
     }
     
     # Placeholder for future versions
