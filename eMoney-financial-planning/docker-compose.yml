@@ -1,0 +1,766 @@
+version: '3.8'
+
+name: Emoney-Financial-Planning DLT Extraction Services
+
+services:
+  emoney_financial_planning_mock_server:
+    build:
+      context: ./_mock
+      dockerfile: Dockerfile
+    container_name: emoney_financial_planning_mock_server
+    restart: unless-stopped
+    profiles: ["dev", "test"]
+    environment:
+      - APP_TITLE=Emoney-Financial-Planning Mock API
+      - APP_VERSION=1.0.0
+      - APP_DESCRIPTION=Mock Emoney-Financial-Planning API server for testing
+      - MOCK_HOST=0.0.0.0
+      - MOCK_PORT=5001
+      - MOCK_DEBUG=true
+      - TOTAL_MOCK_PLANS=500
+      - TOTAL_MOCK_GOALS=1000
+      - TOTAL_MOCK_SCENARIOS=300
+      - TOTAL_MOCK_CASHFLOW=5000
+      - TOTAL_MOCK_NETWORTH=2000
+      - DEFAULT_PAGE_SIZE=100
+      - MAX_PAGE_SIZE=500
+      - DEFAULT_TEST_DELAY=0.1
+      - FAKER_SEED=12345
+      - RATE_LIMIT_ENABLED=true
+      - DAILY_LIMIT=40000
+      - BURST_LIMIT=100
+      - RATE_LIMIT_WINDOW=10
+    ports:
+      - "5001:5001"
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: emoney_financial_planning_zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # Kafka Message Broker
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: emoney_financial_planning_kafka
+    restart: unless-stopped
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      # Pre-create topics for financial planning entities
+      KAFKA_CREATE_TOPICS: "fp-plans-stream:3:1,fp-goals-stream:3:1,fp-scenarios-stream:3:1,fp-cashflow-stream:3:1,fp-networth-stream:3:1"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # Kafka UI - Management Interface for Kafka (dev only)
+  kafka_ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: emoney_financial_planning_kafka_ui
+    profiles: ["dev","stage"]
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=financial-planning-cluster
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      - KAFKA_CLUSTERS_0_ZOOKEEPER=zookeeper:2181
+    networks:
+      - emoney_financial_planning_network
+
+  # PostgreSQL database for Development
+  postgres_dev:
+    image: postgres:15-alpine
+    container_name: emoney_financial_planning_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: financial_planning_data_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_planning_data_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  # PostgreSQL database for Staging
+  postgres_stage:
+    image: postgres:15-alpine
+    container_name: emoney_financial_planning_postgres_stage
+    restart: unless-stopped
+    profiles: ["stage"]
+    environment:
+      POSTGRES_DB: financial_planning_data_stage
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data_stage:/var/lib/postgresql/data
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_planning_data_stage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.8'
+
+  # PostgreSQL database for Production
+  postgres_prod:
+    image: postgres:15-alpine
+    container_name: emoney_financial_planning_postgres_prod
+    restart: unless-stopped
+    profiles: ["prod"]
+    environment:
+      POSTGRES_DB: financial_planning_data_prod
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_planning_data_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+
+  # Emoney-Financial-Planning Data Extraction Service - Development
+  emoney_financial_planning_service_dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: emoney_financial_planning_service_dev
+    restart: unless-stopped
+    environment:
+      # Flask Configuration
+      - APP_VERSION=1.0.0
+      - APP_TITLE=eMoney Financial Planning Core Data Extraction Service
+      - APP_DESCRIPTION=Service for extracting financial planning data using DLT
+
+      - FLASK_ENV=development
+      - FLASK_DEBUG=true
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - PORT=4732
+      - HOST=0.0.0.0
+      
+      # Database Configuration
+      - DB_HOST=postgres_dev
+      - DB_PORT=5432
+      - DB_NAME=financial_planning_data_dev
+      - DB_USER=postgres
+      - DB_PASSWORD=password123
+      - DB_SCHEMA=financial_planning
+      
+      # DLT PostgreSQL destination configuration (required by DLT)
+      - DESTINATION__POSTGRES__CREDENTIALS__DATABASE=financial_planning_data_dev
+      - DESTINATION__POSTGRES__CREDENTIALS__USERNAME=postgres
+      - DESTINATION__POSTGRES__CREDENTIALS__PASSWORD=password123
+      - DESTINATION__POSTGRES__CREDENTIALS__HOST=postgres_dev
+      - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
+
+      # Financial Planning Core API Configuration - PRODUCTION URL
+      - FINANCIAL_PLANNING_API_BASE_URL=http://167.172.66.204:6820
+      
+      # DLT Configuration
+      - DLT_PIPELINE_NAME=financial_planning_extraction
+      - DLT_WORKING_DIR=/app/.dlt
+      
+      # Financial Planning API Configuration
+      - FINANCIAL_PLANNING_API_TIMEOUT=30
+      - FINANCIAL_PLANNING_API_RATE_LIMIT=100
+      - FINANCIAL_PLANNING_RETRY_ATTEMPTS=3
+      - FINANCIAL_PLANNING_RETRY_DELAY=1
+      
+      # Service Configuration
+      - MAX_CONCURRENT_SCANS=3
+      - SCAN_TIMEOUT_HOURS=24
+      - CLEANUP_DAYS=7
+      - DEFAULT_BATCH_SIZE=100
+      
+      # Entity Extraction Control
+      - FINANCIALPLAN_CHECKPOINT_FREQUENCY=10
+      - FINANCIALPLAN_PAUSE_CHECK_FREQUENCY=5
+      - FINANCIALPLAN_CANCEL_CHECK_FREQUENCY=2
+      - FINANCIALPLAN_MAX_BATCHES=1000
+      
+      - GOAL_CHECKPOINT_FREQUENCY=10
+      - GOAL_PAUSE_CHECK_FREQUENCY=5
+      - GOAL_CANCEL_CHECK_FREQUENCY=2
+      - GOAL_MAX_BATCHES=1000
+      
+      - SCENARIO_CHECKPOINT_FREQUENCY=10
+      - SCENARIO_PAUSE_CHECK_FREQUENCY=5
+      - SCENARIO_CANCEL_CHECK_FREQUENCY=2
+      - SCENARIO_MAX_BATCHES=1000
+      
+      - CASHFLOW_CHECKPOINT_FREQUENCY=10
+      - CASHFLOW_PAUSE_CHECK_FREQUENCY=5
+      - CASHFLOW_CANCEL_CHECK_FREQUENCY=2
+      - CASHFLOW_MAX_BATCHES=1000
+      
+      - NETWORTH_CHECKPOINT_FREQUENCY=10
+      - NETWORTH_PAUSE_CHECK_FREQUENCY=5
+      - NETWORTH_CANCEL_CHECK_FREQUENCY=2
+      - NETWORTH_MAX_BATCHES=1000
+      
+      # Logging Configuration
+      - LOG_LEVEL=DEBUG
+      - LOKI_ENABLED=false
+      - LOG_FORMAT=json
+
+      # Kafka Configuration
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_ENABLED=false
+      - KAFKA_TOPIC_PLANS=fp-plans-stream
+      - KAFKA_TOPIC_GOALS=fp-goals-stream
+      - KAFKA_TOPIC_SCENARIOS=fp-scenarios-stream
+
+      # HMAC Authentication
+      - HMAC_ENABLED=false
+      - HMAC_SECRET_KEY=dev-hmac-secret-key
+
+    ports:
+      - "4732:4732"
+    volumes:
+      # Mount source code for development
+      - .:/app:cached
+      # Persistent DLT data
+      - dlt_data_dev:/app/.dlt
+      # Logs directory - bind mount for easy access in dev
+      - ./logs:/app/logs
+    depends_on:
+      postgres_dev:
+        condition: service_healthy
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4732/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+
+  # Emoney-Financial-Planning Data Extraction Service - Staging
+  emoney_financial_planning_service_stage:
+    build:
+      context: .
+      dockerfile: Dockerfile.stage
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: emoney_financial_planning_service_stage
+    restart: unless-stopped
+    profiles: ["stage"]
+    environment:
+      - APP_VERSION=1.0.0
+      - APP_TITLE=eMoney Financial Planning Core Data Extraction Service
+      - APP_DESCRIPTION=Service for extracting financial planning data using DLT
+      
+      # Flask Configuration
+      - FLASK_ENV=staging
+      - FLASK_DEBUG=false
+      - SECRET_KEY=stage-secret-key-change-in-production
+      - PORT=5732
+      - HOST=0.0.0.0
+      
+      # Database Configuration
+      - DB_HOST=postgres_stage
+      - DB_PORT=5432
+      - DB_NAME=financial_planning_data_stage
+      - DB_USER=postgres
+      - DB_PASSWORD=password123
+      - DB_SCHEMA=financial_planning
+      
+      # DLT PostgreSQL destination configuration
+      - DESTINATION__POSTGRES__CREDENTIALS__DATABASE=financial_planning_data_stage
+      - DESTINATION__POSTGRES__CREDENTIALS__USERNAME=postgres
+      - DESTINATION__POSTGRES__CREDENTIALS__PASSWORD=password123
+      - DESTINATION__POSTGRES__CREDENTIALS__HOST=postgres_stage
+      - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
+      
+      # Financial Planning Core API Configuration - PRODUCTION URL
+      - FINANCIAL_PLANNING_API_BASE_URL=http://167.172.66.204:6820
+
+      # DLT Configuration
+      - DLT_PIPELINE_NAME=financial_planning_extraction
+      - DLT_WORKING_DIR=/app/.dlt
+      
+      # Financial Planning API Configuration
+      - FINANCIAL_PLANNING_API_TIMEOUT=45
+      - FINANCIAL_PLANNING_API_RATE_LIMIT=200
+      - FINANCIAL_PLANNING_RETRY_ATTEMPTS=3
+      - FINANCIAL_PLANNING_RETRY_DELAY=1
+      
+      # Service Configuration
+      - MAX_CONCURRENT_SCANS=5
+      - SCAN_TIMEOUT_HOURS=48
+      - CLEANUP_DAYS=14
+      - DEFAULT_BATCH_SIZE=100
+      
+      # Logging Configuration
+      - LOG_LEVEL=INFO
+      - LOKI_ENABLED=true
+      - LOG_FORMAT=json
+
+      # Kafka Configuration
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_ENABLED=false
+      - KAFKA_TOPIC_PLANS=fp-plans-stream
+      - KAFKA_TOPIC_GOALS=fp-goals-stream
+      - KAFKA_TOPIC_SCENARIOS=fp-scenarios-stream
+
+      # HMAC Authentication
+      - HMAC_ENABLED=true
+      - HMAC_SECRET_KEY=${HMAC_SECRET_KEY}
+      
+    ports:
+      - "5732:5732"
+    volumes:
+      # Persistent DLT data
+      - dlt_data_stage:/app/.dlt
+      # Logs directory - Docker volume for persistence
+      - logs_data_stage:/app/logs
+    depends_on:
+      postgres_stage:
+        condition: service_healthy
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5732/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.5'
+
+  # Emoney-Financial-Planning Data Extraction Service - Production
+  emoney_financial_planning_service_prod:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: emoney_financial_planning_service_prod
+    restart: unless-stopped
+    profiles: ["prod"]
+    environment:
+      - APP_VERSION=1.0.0
+      - APP_TITLE=eMoney Financial Planning Core Data Extraction Service
+      - APP_DESCRIPTION=Service for extracting financial planning data using DLT
+
+      # Flask Configuration
+      - FLASK_ENV=production
+      - FLASK_DEBUG=false
+      - SECRET_KEY=${SECRET_KEY}
+      - PORT=3732
+      - HOST=0.0.0.0
+      
+      # Database Configuration
+      - DB_HOST=postgres_prod
+      - DB_PORT=5432
+      - DB_NAME=financial_planning_data_prod
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_SCHEMA=financial_planning
+      
+      # DLT PostgreSQL destination configuration
+      - DESTINATION__POSTGRES__CREDENTIALS__DATABASE=financial_planning_data_prod
+      - DESTINATION__POSTGRES__CREDENTIALS__USERNAME=postgres
+      - DESTINATION__POSTGRES__CREDENTIALS__PASSWORD=${DB_PASSWORD}
+      - DESTINATION__POSTGRES__CREDENTIALS__HOST=postgres_prod
+      - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
+      
+      # Financial Planning Core API Configuration - PRODUCTION URL
+      - FINANCIAL_PLANNING_API_BASE_URL=http://167.172.66.204:6820
+      
+      # DLT Configuration
+      - DLT_PIPELINE_NAME=financial_planning_extraction
+      - DLT_WORKING_DIR=/app/.dlt
+      
+      # Financial Planning API Configuration
+      - FINANCIAL_PLANNING_API_TIMEOUT=60
+      - FINANCIAL_PLANNING_API_RATE_LIMIT=300
+      - FINANCIAL_PLANNING_RETRY_ATTEMPTS=5
+      - FINANCIAL_PLANNING_RETRY_DELAY=2
+      
+      # Service Configuration
+      - MAX_CONCURRENT_SCANS=10
+      - SCAN_TIMEOUT_HOURS=72
+      - CLEANUP_DAYS=30
+      - DEFAULT_BATCH_SIZE=100
+      
+      # Logging Configuration
+      - LOG_LEVEL=WARNING
+      - LOKI_ENABLED=true
+      - LOG_FORMAT=json
+
+      # Kafka Configuration
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_ENABLED=false
+      - KAFKA_TOPIC_PLANS=fp-plans-stream
+      - KAFKA_TOPIC_GOALS=fp-goals-stream
+      - KAFKA_TOPIC_SCENARIOS=fp-scenarios-stream
+
+      # HMAC Authentication
+      - HMAC_ENABLED=true
+      - HMAC_SECRET_KEY=${HMAC_SECRET_KEY}
+      
+    ports:
+      - "3732:3732"
+    volumes:
+      # Persistent DLT data
+      - dlt_data_prod:/app/.dlt
+      # Logs directory - Docker volume for persistence
+      - logs_data_prod:/app/logs
+    depends_on:
+      postgres_prod:
+        condition: service_healthy
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3732/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+
+
+  # PostgreSQL database for Testing
+  postgres_test:
+    image: postgres:15-alpine
+    container_name: emoney_financial_planning_postgres_test
+    restart: unless-stopped
+    profiles: ["test"]
+    environment:
+      POSTGRES_DB: financial_planning_data_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data_test:/var/lib/postgresql/data
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_planning_data_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.3'
+
+  # Test Service - Uses mock server
+  emoney_financial_planning_service_test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    container_name: emoney_financial_planning_service_test
+    profiles: ["test"]
+    environment:
+      # Flask Configuration
+      - FLASK_ENV=testing
+      - FLASK_DEBUG=false
+      - SECRET_KEY=test-secret-key
+      
+      # Database Configuration - Points to test database
+      - DB_HOST=postgres_test
+      - DB_PORT=5432
+      - DB_NAME=financial_planning_data_test
+      - DB_USER=postgres
+      - DB_PASSWORD=password123
+      - DB_SCHEMA=financial_planning_test
+      
+      # DLT PostgreSQL destination configuration
+      - DESTINATION__POSTGRES__CREDENTIALS__DATABASE=financial_planning_data_test
+      - DESTINATION__POSTGRES__CREDENTIALS__USERNAME=postgres
+      - DESTINATION__POSTGRES__CREDENTIALS__PASSWORD=password123
+      - DESTINATION__POSTGRES__CREDENTIALS__HOST=postgres_test
+      - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
+      
+      # DLT Configuration
+      - DLT_PIPELINE_NAME=financial_planning_extraction_test
+      - DLT_WORKING_DIR=/app/.dlt
+      
+      # Use Mock Server for Testing
+      - FINANCIAL_PLANNING_API_BASE_URL=http://emoney_financial_planning_mock_server:5001
+
+      # Test-specific settings
+      - LOG_FORMAT=json
+      - TESTING=true
+      - CACHE_ENABLED=false
+      - LOKI_ENABLED=false
+      - RATELIMIT_ENABLED=false
+      - MAX_CONCURRENT_SCANS=1
+      - SCAN_TIMEOUT_HOURS=1
+      - DEFAULT_BATCH_SIZE=10
+      - LOG_LEVEL=INFO
+      - WTF_CSRF_ENABLED=false
+      - API_TEST_DELAY_SECONDS=2
+      - TEST_BATCH_DELAY_SECONDS=5
+      - TEST_RECORD_DELAY_SECONDS=0.1
+    volumes:
+      - dlt_data_test:/app/.dlt
+      - test_logs:/app/logs
+    depends_on:
+      postgres_test:
+        condition: service_healthy
+      emoney_financial_planning_mock_server:
+        condition: service_healthy
+    networks:
+      - emoney_financial_planning_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    command: ["python", "test_mock_lifecycle.py"]
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: emoney_financial_planning_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass redis123
+    environment:
+      - REDIS_PASSWORD=redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - emoney_financial_planning_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+
+  # Development Tools (only for dev profile)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: emoney_financial_planning_pgadmin
+    profiles: ["dev"]
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@financial-planning.dev
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres_dev:
+        condition: service_healthy
+    networks:
+      - emoney_financial_planning_network
+
+  # Redis Commander for Redis management (dev only)
+  redis_commander:
+    image: rediscommander/redis-commander:latest
+    container_name: emoney_financial_planning_redis_commander
+    profiles: ["dev"]
+    restart: unless-stopped
+    environment:
+      - REDIS_HOSTS=local:emoney_financial_planning_redis:6379:0:redis123
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=admin123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - emoney_financial_planning_network
+
+volumes:
+  postgres_data_dev:
+    name: emoney_financial_planning_postgres_data_dev
+    driver: local
+  
+  postgres_data_stage:
+    name: emoney_financial_planning_postgres_data_stage
+    driver: local
+  
+  postgres_data_prod:
+    name: emoney_financial_planning_postgres_data_prod
+    driver: local
+  
+  dlt_data_dev:
+    name: emoney_financial_planning_dlt_data_dev
+    driver: local
+  
+  dlt_data_stage:
+    name: emoney_financial_planning_dlt_data_stage
+    driver: local
+  
+  dlt_data_prod:
+    name: emoney_financial_planning_dlt_data_prod
+    driver: local
+  
+  logs_data_stage:
+    name: emoney_financial_planning_logs_data_stage
+    driver: local
+  
+  logs_data_prod:
+    name: emoney_financial_planning_logs_data_prod
+    driver: local
+  
+  redis_data:
+    name: emoney_financial_planning_redis_data
+    driver: local
+
+  pgadmin_data:
+    name: emoney_financial_planning_pgadmin_data
+    driver: local
+  
+  dlt_data_test:
+    name: emoney_financial_planning_dlt_data_test
+    driver: local
+  
+  test_logs:
+    name: emoney_financial_planning_test_logs
+    driver: local
+
+  postgres_data_test:
+    name: emoney_financial_planning_postgres_data_test
+    driver: local
+
+  zookeeper_data:
+    name: emoney_financial_planning_zookeeper_data
+    driver: local
+  
+  zookeeper_logs:
+    name: emoney_financial_planning_zookeeper_logs
+    driver: local
+  
+  kafka_data:
+    name: emoney_financial_planning_kafka_data
+    driver: local
+
+networks:
+  emoney_financial_planning_network:
+    name: emoney_financial_planning_network
+    driver: bridge
