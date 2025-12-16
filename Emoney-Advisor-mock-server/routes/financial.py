@@ -41,6 +41,61 @@ def model_to_dict(obj):
 # PLANS & GOALS ENDPOINTS
 # ============================================================================
 
+@router.get("/plans")
+def get_plans(
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(100, ge=1, le=500),
+    status: Optional[str] = Query(None),
+    planType: Optional[str] = Query(None),
+    clientId: Optional[str] = Query(None),
+    includeGoals: bool = Query(False),
+    includeScenarios: bool = Query(False),
+    db: Session = Depends(get_db)
+):
+    """List all financial plans with pagination"""
+    service = FinancialPlanService()
+    skip = (page - 1) * pageSize
+    
+    # Get plans with filters
+    plans = service.get_all(
+        db, 
+        skip=skip, 
+        limit=pageSize,
+        client_id=clientId,
+        status=status,
+        plan_type=planType
+    )
+    
+    # Count total for pagination
+    all_plans = service.get_all(
+        db,
+        client_id=clientId,
+        status=status,
+        plan_type=planType
+    )
+    total = len(all_plans)
+    
+    # Convert plans to dict and optionally include nested data
+    plans_data = []
+    for plan in plans:
+        plan_dict = model_to_dict(plan)
+        
+        if includeGoals:
+            plan_dict['goals'] = [model_to_dict(g) for g in service.get_plan_goals(db, plan.PlanID)]
+        
+        if includeScenarios:
+            plan_dict['scenarios'] = [model_to_dict(s) for s in service.get_plan_scenarios(db, plan.PlanID)]
+        
+        plans_data.append(plan_dict)
+    
+    return {
+        "plans": plans_data,
+        "total": total,
+        "page": page,
+        "pageSize": len(plans),
+        "totalPages": (total + pageSize - 1) // pageSize if total > 0 else 0
+    }
+
 @router.get("/plans/{planId}")
 def get_financial_plan(
     planId: str = Path(...),
@@ -247,6 +302,46 @@ def get_goal(
     
     return result
 
+@router.get("/scenarios")
+def get_scenarios(
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(100, ge=1, le=500),
+    planId: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    scenarioType: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """List all scenarios with pagination"""
+    service = ScenarioService()
+    skip = (page - 1) * pageSize
+    
+    # Get scenarios with filters
+    scenarios = service.get_all(
+        db,
+        skip=skip,
+        limit=pageSize,
+        plan_id=planId,
+        status=status,
+        scenario_type=scenarioType
+    )
+    
+    # Count total for pagination
+    all_scenarios = service.get_all(
+        db,
+        plan_id=planId,
+        status=status,
+        scenario_type=scenarioType
+    )
+    total = len(all_scenarios)
+    
+    return {
+        "scenarios": [model_to_dict(scenario) for scenario in scenarios],
+        "total": total,
+        "page": page,
+        "pageSize": len(scenarios),
+        "totalPages": (total + pageSize - 1) // pageSize if total > 0 else 0
+    }
+
 @router.get("/scenarios/{scenarioId}")
 def get_scenario(
     scenarioId: str = Path(...),
@@ -271,6 +366,43 @@ def get_scenario(
 # ============================================================================
 # CASH FLOW & BUDGET ENDPOINTS
 # ============================================================================
+
+@router.get("/cashflow")
+def get_all_cashflow(
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(100, ge=1, le=500),
+    planId: Optional[str] = Query(None),
+    year: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """List all cashflow projections with pagination"""
+    service = CashFlowService()
+    skip = (page - 1) * pageSize
+    
+    # Get cashflows with filters
+    cashflows = service.get_all(
+        db,
+        skip=skip,
+        limit=pageSize,
+        plan_id=planId,
+        year=year
+    )
+    
+    # Count total for pagination
+    all_cashflows = service.get_all(
+        db,
+        plan_id=planId,
+        year=year
+    )
+    total = len(all_cashflows)
+    
+    return {
+        "cashflow": [model_to_dict(cf) for cf in cashflows],
+        "total": total,
+        "page": page,
+        "pageSize": len(cashflows),
+        "totalPages": (total + pageSize - 1) // pageSize if total > 0 else 0
+    }
 
 @router.get("/cashflow/{planId}")
 def get_cashflow_projections(
@@ -386,6 +518,47 @@ def get_client_budget(
         "year": year or datetime.now().year,
         "budget": {},
         "note": "Budget tracking would require additional Budget model implementation"
+    }
+
+# ============================================================================
+# NET WORTH ENDPOINTS
+# ============================================================================
+
+@router.get("/networth")
+def get_all_networth(
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(100, ge=1, le=500),
+    planId: Optional[str] = Query(None),
+    householdId: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    """List all net worth records with pagination"""
+    service = NetWorthService()
+    skip = (page - 1) * pageSize
+    
+    # Get networth records with filters
+    networth_records = service.get_all(
+        db,
+        skip=skip,
+        limit=pageSize,
+        plan_id=planId,
+        household_id=householdId
+    )
+    
+    # Count total for pagination
+    all_networth = service.get_all(
+        db,
+        plan_id=planId,
+        household_id=householdId
+    )
+    total = len(all_networth)
+    
+    return {
+        "networth": [model_to_dict(nw) for nw in networth_records],
+        "total": total,
+        "page": page,
+        "pageSize": len(networth_records),
+        "totalPages": (total + pageSize - 1) // pageSize if total > 0 else 0
     }
 
 # ============================================================================
