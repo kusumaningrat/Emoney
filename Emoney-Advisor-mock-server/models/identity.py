@@ -1,4 +1,4 @@
-# models/identity.py - Version 1: Identity & Access Management (Schema Compliant)
+# models/identity.py - Version 1: Identity & Access Management (PascalCase String PKs)
 
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, DateTime, Table
 from sqlalchemy.orm import relationship
@@ -8,7 +8,7 @@ import enum
 from database import Base
 
 # ============================================================================
-# JUNCTION TABLES (Define with proper column naming)
+# JUNCTION TABLES
 # ============================================================================
 
 # Many-to-many relationship between users and roles
@@ -62,15 +62,15 @@ class LogonType(str, enum.Enum):
     PORTAL = "Portal"
 
 # ============================================================================
-# MODELS - Following eMoney V1 Schema Specification
+# MODELS - Version 1 Schema (PascalCase, String PKs)
 # ============================================================================
 
 class Office(Base):
-    """Office Model - eMoney V1 Schema"""
+    """Office Model - Version 1 Schema"""
     __tablename__ = "offices"
     __table_args__ = {'extend_existing': True}
     
-    # Primary Fields - Following Schema Specification
+    # Primary Fields
     OfficeID = Column("OfficeID", String, primary_key=True, index=True)
     OfficeName = Column("OfficeName", String, nullable=False)
     ParentOfficeID = Column("ParentOfficeID", String, ForeignKey("offices.OfficeID"), nullable=True)
@@ -91,11 +91,11 @@ class Office(Base):
 
 
 class User(Base):
-    """User Model - eMoney V1 Schema"""
+    """User Model - Version 1 Schema"""
     __tablename__ = "users"
     __table_args__ = {'extend_existing': True}
     
-    # Primary Fields - Following Schema Specification
+    # Primary Fields
     UserID = Column("UserID", String, primary_key=True, index=True)
     Username = Column("Username", String, unique=True, index=True, nullable=False)
     Email = Column("Email", String, unique=True, index=True, nullable=False)
@@ -116,11 +116,11 @@ class User(Base):
 
 
 class Role(Base):
-    """Role Model - eMoney V1 Schema"""
+    """Role Model - Version 1 Schema"""
     __tablename__ = "roles"
     __table_args__ = {'extend_existing': True}
     
-    # Primary Fields - Following Schema Specification
+    # Primary Fields
     RoleID = Column("RoleID", String, primary_key=True, index=True)
     RoleName = Column("RoleName", String, unique=True, nullable=False)
     Description = Column("Description", String, nullable=True)
@@ -135,11 +135,11 @@ class Role(Base):
 
 
 class Permission(Base):
-    """Permission Model - eMoney V1 Schema"""
+    """Permission Model - Version 1 Schema"""
     __tablename__ = "permissions"
     __table_args__ = {'extend_existing': True}
     
-    # Primary Fields - Following Schema Specification
+    # Primary Fields
     PermissionID = Column("PermissionID", String, primary_key=True, index=True)
     PermissionName = Column("PermissionName", String, nullable=False)
     PermissionCode = Column("PermissionCode", String, unique=True, nullable=False)
@@ -153,11 +153,11 @@ class Permission(Base):
 
 
 class SharingRule(Base):
-    """SharingRule Model - eMoney V1 Schema"""
+    """SharingRule Model - Version 1 Schema"""
     __tablename__ = "sharing_rules"
     __table_args__ = {'extend_existing': True}
     
-    # Primary Fields - Following Schema Specification
+    # Primary Fields
     SharingRuleID = Column("SharingRuleID", String, primary_key=True, index=True)
     UserID = Column("UserID", String, ForeignKey("users.UserID"), nullable=False)
     ClientID = Column("ClientID", String, nullable=False)  # Foreign key to Client in V2
@@ -178,11 +178,11 @@ class SharingRule(Base):
 
 
 class Logon(Base):
-    """Logon Model - eMoney V1 Schema"""
+    """Logon Model - Version 1 Schema"""
     __tablename__ = "logons"
     __table_args__ = {'extend_existing': True}
     
-    # Primary Fields - Following Schema Specification
+    # Primary Fields
     LogonID = Column("LogonID", String, primary_key=True, index=True)
     UserID = Column("UserID", String, ForeignKey("users.UserID"), nullable=False)
     LogonType = Column("LogonType", String, nullable=False, default=LogonType.USER.value)
