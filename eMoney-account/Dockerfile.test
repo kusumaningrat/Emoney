@@ -1,0 +1,48 @@
+# Dockerfile.test - Testing Environment
+FROM python:3.11-slim
+ENV GIT_PYTHON_REFRESH=quiet
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV FLASK_ENV=testing
+ENV ENVIRONMENT=testing
+ENV TESTING=True
+ENV TEST_BATCH_DELAY_SECONDS=3
+ENV TEST_RECORD_DELAY_SECONDS=0.05
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install additional testing dependencies
+RUN pip install --no-cache-dir \
+    pytest \
+    pytest-cov \
+    pytest-asyncio \
+    pytest-mock \
+    pytest-html \
+    pytest-xdist \
+    factory-boy \
+    faker
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p logs .dlt
+
+# Generate test HTML report
+CMD ["sh", "-c", "pytest /app/tests -xvs --html=/app/test-reports/test-report.html --self-contained-html"]
