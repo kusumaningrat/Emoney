@@ -9,7 +9,7 @@ from config import get_config
 
 class APIService:
     """
-    Service for interacting with eMoney Advisor API
+    Service for interacting with eMoney Client API
     Handles data retrieval for client objects:
     Client, Contact, Household, Spouse, Relationship
     """
@@ -21,14 +21,14 @@ class APIService:
         self.config = get_config()
         self.access_token = None
 
-        # eMoney API endpoints
-        self.EMONEY_CLIENTS_ENDPOINT = "/clients"
-        self.EMONEY_CONTACTS_ENDPOINT = "/contacts"
-        self.EMONEY_HOUSEHOLDS_ENDPOINT = "/households"
-        self.EMONEY_SPOUSES_ENDPOINT = "/spouse"
-        self.EMONEY_RELATIONSHIPS_ENDPOINT = "/relationships"
+        # eMoney Client API endpoints from config
+        self.EMONEY_CLIENTS_ENDPOINT = self.config.EMONEY_CLIENTS_ENDPOINT
+        self.EMONEY_CONTACTS_ENDPOINT = self.config.EMONEY_CONTACTS_ENDPOINT
+        self.EMONEY_HOUSEHOLDS_ENDPOINT = self.config.EMONEY_HOUSEHOLDS_ENDPOINT
+        self.EMONEY_SPOUSES_ENDPOINT = self.config.EMONEY_SPOUSES_ENDPOINT
+        self.EMONEY_RELATIONSHIPS_ENDPOINT = self.config.EMONEY_RELATIONSHIPS_ENDPOINT
 
-        # Default headers for eMoney API
+        # Default headers for eMoney Client API
         self.session.headers.update(
             {
                 "Content-Type": "application/json",
@@ -42,7 +42,7 @@ class APIService:
     # ---------------------------
     def authenticate(self, auth_config: Dict[str, Any] = None) -> str:
         """
-        Authenticate with Wealthbox Client API
+        Authenticate with eMoney Client API
 
         Args:
             auth_config: Optional authentication config (not used for mock server)
@@ -51,7 +51,7 @@ class APIService:
             Access token (can be any string for mock server)
         """
         try:
-            self.logger.info("Authenticating with Wealthbox Client API")
+            self.logger.info("Authenticating with eMoney Client API")
 
             # For the mock server, the token can be anything
             self.access_token = "anything"
@@ -67,7 +67,6 @@ class APIService:
         except Exception as e:
             self.logger.error(f"Authentication failed: {str(e)}")
             raise
-            
 
     # ---------------------------
     # REQUEST HANDLER
@@ -131,7 +130,6 @@ class APIService:
 
         raise Exception(f"Failed to complete request after {max_retries} attempts")
 
-
     # ---------------------------
     # CLIENT OBJECTS (eMoney API pagination uses page & pageSize)
     # ---------------------------
@@ -143,7 +141,7 @@ class APIService:
         include_household: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get client records from eMoney API
+        Get client records from eMoney Client API
         
         Endpoint: GET /clients
         
@@ -195,14 +193,13 @@ class APIService:
         filters: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
-        Get contact records from eMoney API
+        Get contact records from eMoney Client API
         
-        Note: eMoney API documentation doesn't show a direct /contacts endpoint.
-        Contacts are typically accessed via /clients/{clientId} or as part of household data.
+        Endpoint: GET /contacts
         
         Args:
             page: Page number to retrieve (pagination)
-            page_size: Maximum number of records per page
+            page_size: Maximum number of records per page (max 100)
             filters: Additional filters to apply
 
         Returns:
@@ -216,6 +213,21 @@ class APIService:
             
         return self._make_request(endpoint, params)
 
+    def get_contact(self, contact_id: str) -> Dict[str, Any]:
+        """
+        Get specific contact by ID
+        
+        Endpoint: GET /contacts/{contactId}
+        
+        Args:
+            contact_id: Contact ID
+
+        Returns:
+            Contact record
+        """
+        endpoint = f"{self.EMONEY_CONTACTS_ENDPOINT}/{contact_id}"
+        return self._make_request(endpoint)
+
     def get_households(
         self,
         page: int = 1,
@@ -226,13 +238,13 @@ class APIService:
         include_networth: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get household records from eMoney API
+        Get household records from eMoney Client API
         
-        Endpoint: GET /households/{householdId}
+        Endpoint: GET /households
         
         Args:
             page: Page number to retrieve (pagination)
-            page_size: Maximum number of records per page
+            page_size: Maximum number of records per page (max 100)
             filters: Additional filters (netWorth comparisons, etc.)
             include_members: Include household members
             include_accounts: Include household accounts
@@ -299,11 +311,38 @@ class APIService:
             
         return self._make_request(endpoint, params)
 
+    def get_spouses(
+        self,
+        page: int = 1,
+        page_size: int = 100,
+        filters: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get spouse records from eMoney Client API
+        
+        Endpoint: GET /spouses
+        
+        Args:
+            page: Page number to retrieve (pagination)
+            page_size: Maximum number of records per page (max 100)
+            filters: Additional filters to apply
+
+        Returns:
+            Dict with spouse records
+        """
+        endpoint = self.EMONEY_SPOUSES_ENDPOINT
+        params = {"page": page, "pageSize": min(page_size, 100)}
+        
+        if filters:
+            params.update(filters)
+            
+        return self._make_request(endpoint, params)
+
     def get_spouse(self, spouse_id: str) -> Dict[str, Any]:
         """
         Get spouse details by ID
         
-        Endpoint: GET /spouse/{spouseId}
+        Endpoint: GET /spouses/{spouseId}
         
         Args:
             spouse_id: Spouse ID
@@ -336,14 +375,13 @@ class APIService:
         filters: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
-        Get relationship records from eMoney API
+        Get relationship records from eMoney Client API
         
-        Note: eMoney API documentation doesn't explicitly show a /relationships endpoint.
-        Relationships are typically accessed via household members or client data.
+        Endpoint: GET /relationships
         
         Args:
             page: Page number to retrieve (pagination)
-            page_size: Maximum number of records per page
+            page_size: Maximum number of records per page (max 100)
             filters: Additional filters to apply
 
         Returns:
@@ -356,3 +394,18 @@ class APIService:
             params.update(filters)
             
         return self._make_request(endpoint, params)
+
+    def get_relationship(self, relationship_id: str) -> Dict[str, Any]:
+        """
+        Get specific relationship by ID
+        
+        Endpoint: GET /relationships/{relationshipId}
+        
+        Args:
+            relationship_id: Relationship ID
+
+        Returns:
+            Relationship record
+        """
+        endpoint = f"{self.EMONEY_RELATIONSHIPS_ENDPOINT}/{relationship_id}"
+        return self._make_request(endpoint)

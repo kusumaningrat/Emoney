@@ -8,26 +8,26 @@ from app.service_config import STANDARD_ENDPOINTS, EMONEY_SERVICES, DEFAULT_SCAN
 
 logger = logging.getLogger(__name__)
 
-class EMoneyClientConnector:
+class EMoneyFinancialPlanningConnector:
     """
-    Connector for EMoney Client Service data extraction operations.
-    Handles client entity scanning and data extraction for clients, contacts,
-    households, relationships, and spouses.
+    Connector for EMoney Financial Planning Service data extraction operations.
+    Handles financial planning entity scanning and data extraction for plans, goals,
+    net worth calculations, scenarios, and cashflow projections.
     """
     
     # Supported specific entity types for this service
-    SUPPORTED_ENTITY_TYPES = ["client", "contact", "household", "relationship", "spouse"]
+    SUPPORTED_ENTITY_TYPES = ["plan", "goal", "net_worth", "scenario", "cashflow"]
     
     def __init__(self, api_key: Optional[str] = None, timeout: float = 5.0):
         """
-        Initialize the Client connector with configuration from settings.
+        Initialize the Financial Planning connector with configuration from settings.
         
         Args:
             api_key: Optional API key override (defaults to settings)
             timeout: Request timeout in seconds
         """
         settings = get_settings()
-        self.service_key = "client"
+        self.service_key = "financial_planning"
         self.service_url = settings.get_service_url(self.service_key)
         
         if not self.service_url:
@@ -44,7 +44,7 @@ class EMoneyClientConnector:
             timeout=timeout
         )
         
-        logger.info(f"Initialized EMoneyClientConnector for {self.service_url}")
+        logger.info(f"Initialized EMoneyFinancialPlanningConnector for {self.service_url}")
     
     def _get_endpoint_path(self, endpoint_key: str, **path_params) -> str:
         """
@@ -73,7 +73,7 @@ class EMoneyClientConnector:
     
     async def health_check(self) -> Dict[str, Any]:
         """
-        Check if the Client service is healthy.
+        Check if the Financial Planning service is healthy.
         
         Returns:
             Dict[str, Any]: Health status response
@@ -82,8 +82,8 @@ class EMoneyClientConnector:
             path = self._get_endpoint_path("health")
             return await self.connector.get(path)
         except Exception as e:
-            logger.error(f"Client service health check failed: {str(e)}")
-            raise ServiceConnectionError(f"Client service unavailable: {str(e)}")
+            logger.error(f"Financial Planning service health check failed: {str(e)}")
+            raise ServiceConnectionError(f"Financial Planning service unavailable: {str(e)}")
     
     async def get_stats(self) -> Dict[str, Any]:
         """
@@ -96,19 +96,19 @@ class EMoneyClientConnector:
             path = self._get_endpoint_path("stats")
             return await self.connector.get(path)
         except Exception as e:
-            logger.error(f"Failed to get client service stats: {str(e)}")
+            logger.error(f"Failed to get financial planning service stats: {str(e)}")
             raise ServiceConnectionError(f"Stats retrieval failed: {str(e)}")
     
     async def start_scan(self, scan_config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Start a data extraction scan for client entities with EMoney JWT authentication.
+        Start a data extraction scan for financial planning entities with EMoney JWT authentication.
         
         Expected input format (orchestrator):
         {
             "config": {
-                "scanId": "emoney-scan-2025-001321",
+                "scanId": "emoney-plan-2025-00188",
                 "organizationId": "org-12345",
-                "type": ["client", "contact", "household", "relationship", "spouse"],
+                "type": ["plan", "goal", "net_worth", "scenario", "cashflow"],
                 "auth": {
                     "api_key": "emoney-api-key-67890",
                     "client_id": "emoney-client-id-12345",
@@ -159,14 +159,17 @@ class EMoneyClientConnector:
                 config["type"] = [config["type"]]
                     
             # Normalize and expand entity types
-            # The generic "client" type should be expanded to all specific types
+            # The generic "financial_planning" or "plan" type should be expanded to all specific types
             expanded_types = []
             for entity_type in config["type"]:
                 entity_type_lower = entity_type.lower() if isinstance(entity_type, str) else entity_type
                 
-                # If the generic "client" type is requested, expand to all specific types
-                if entity_type_lower == "client" and len(config["type"]) == 1:
-                    logger.info(f"Expanding generic 'client' type to specific types: {self.SUPPORTED_ENTITY_TYPES}")
+                # If the generic types are requested, expand to all specific types
+                if entity_type_lower in ["financial_planning", "planning"] and len(config["type"]) == 1:
+                    logger.info(f"Expanding generic '{entity_type_lower}' type to specific types: {self.SUPPORTED_ENTITY_TYPES}")
+                    expanded_types.extend(self.SUPPORTED_ENTITY_TYPES)
+                elif entity_type_lower == "plan" and len(config["type"]) == 1:
+                    logger.info(f"Expanding generic 'plan' type to specific types: {self.SUPPORTED_ENTITY_TYPES}")
                     expanded_types.extend(self.SUPPORTED_ENTITY_TYPES)
                 else:
                     # Keep specific types as-is
@@ -249,15 +252,15 @@ class EMoneyClientConnector:
             batch_size = config["filters"].get("batchSize", 100)
             config["filters"]["batchSize"] = batch_size
             
-            # Handle includeInactive for EMoney client service
+            # Handle includeInactive for EMoney financial planning service
             include_inactive = config["filters"].get("includeInactive", False)
             config["filters"]["includeInactive"] = include_inactive
-            logger.debug(f"EMoney client filters - batchSize: {batch_size}, includeInactive: {include_inactive}")
+            logger.debug(f"EMoney financial planning filters - batchSize: {batch_size}, includeInactive: {include_inactive}")
                 
             # Generate a scanId if not provided
             if "scanId" not in config:
                 import uuid
-                config["scanId"] = f"emoney-{self.service_key}-2025-{str(uuid.uuid4())[:6]}"
+                config["scanId"] = f"emoney-plan-2025-{str(uuid.uuid4())[:5]}"
                 
             logger.info(f"Starting {self.service_key} scan with ID {config.get('scanId')}")
             logger.debug(f"Scan config being sent: {json.dumps(scan_config, indent=2)}")

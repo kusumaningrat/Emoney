@@ -4,19 +4,19 @@ from typing import Dict, Any, Optional, List
 from app.connectors.api_connector import SimpleAPIConnector
 from app.core.exceptions import ServiceConnectionError
 from app.settings import get_settings
-from app.service_config import STANDARD_ENDPOINTS, WEALTHBOX_SERVICES, DEFAULT_SCAN_CONFIG
+from app.service_config import STANDARD_ENDPOINTS, EMONEY_SERVICES, DEFAULT_SCAN_CONFIG
 
 logger = logging.getLogger(__name__)
 
-class WealthboxIdentityConnector:
+class EMoneyIdentityConnector:
     """
-    Connector for Wealthbox Identity Service data extraction operations.
-    Handles identity entity scanning and data extraction for users, user profiles,
-    workspaces, roles, and permissions.
+    Connector for EMoney Identity Service data extraction operations.
+    Handles identity entity scanning and data extraction for permissions, roles, offices,
+    logons, sharing rules, and users.
     """
     
     # Supported specific entity types for this service
-    SUPPORTED_ENTITY_TYPES = ["user", "user_profile", "workspace", "role", "permission"]
+    SUPPORTED_ENTITY_TYPES = ["permission", "office", "role", "logon", "sharingrule", "user"]
     
     def __init__(self, api_key: Optional[str] = None, timeout: float = 5.0):
         """
@@ -34,7 +34,7 @@ class WealthboxIdentityConnector:
             logger.error(f"No URL configured for {self.service_key} service in {settings.ENVIRONMENT} environment")
         
         # Get the endpoints for this service
-        self.service_config = WEALTHBOX_SERVICES.get(self.service_key, {})
+        self.service_config = EMONEY_SERVICES.get(self.service_key, {})
         self.endpoints = self.service_config.get("endpoints", STANDARD_ENDPOINTS.copy())
         
         self.api_key = api_key or settings.API_KEY
@@ -44,7 +44,7 @@ class WealthboxIdentityConnector:
             timeout=timeout
         )
         
-        logger.info(f"Initialized WealthboxIdentityConnector for {self.service_url}")
+        logger.info(f"Initialized EMoneyIdentityConnector for {self.service_url}")
     
     def _get_endpoint_path(self, endpoint_key: str, **path_params) -> str:
         """
@@ -101,19 +101,20 @@ class WealthboxIdentityConnector:
     
     async def start_scan(self, scan_config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Start a data extraction scan for identity entities with Wealthbox OAuth support.
+        Start a data extraction scan for identity entities with EMoney JWT authentication.
         
         Expected input format (orchestrator):
         {
             "config": {
-                "scanId": "wealthbox-identity-scan-2025-001",
+                "scanId": "emoney-identity-2025-001143",
                 "organizationId": "org-12345",
-                "type": ["user", "user_profile", "workspace", "role", "permission"],
+                "type": ["permission", "office", "role", "logon", "sharingrule", "user"],
                 "auth": {
-                    "client_id": "wealthbox-client-123456789",
-                    "client_secret": "c1ient-s3cret-v4lue-example",
-                    "grant_type": "client_credentials",
-                    "scope": "read"
+                    "api_key": "emoney-api-key-67890",
+                    "client_id": "emoney-client-id-12345",
+                    "firm_id": "firm-12345",
+                    "jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "scope": "API"
                 },
                 "filters": {
                     "dateRange": {
@@ -121,13 +122,13 @@ class WealthboxIdentityConnector:
                         "endDate": "2025-12-31"
                     },
                     "batchSize": 100,
-                    "includeArchived": false
+                    "includeInactive": false
                 }
             }
         }
         
-        For mock servers, we pass through the OAuth credentials as-is.
-        The mock server will validate and handle them directly.
+        For EMoney servers, we pass through the JWT authentication as-is.
+        The EMoney server will validate and handle them directly.
         
         Args:
             scan_config: Scan configuration with structure shown above
@@ -147,7 +148,7 @@ class WealthboxIdentityConnector:
             # Ensure required fields exist
             config = scan_config["config"]
             if "organizationId" not in config:
-                config["organizationId"] = ""
+                config["organizationId"] = "org-12345"
                 
             # Handle type field - ensure it's a list
             if "type" not in config or not config["type"]:
@@ -175,23 +176,38 @@ class WealthboxIdentityConnector:
             config["type"] = list(dict.fromkeys(expanded_types))
             logger.debug(f"Final entity types after expansion: {config['type']}")
             
-            # FIXED: Pass through OAuth credentials directly to mock server
-            # The mock server expects and validates OAuth credentials, not access tokens
+            # Handle EMoney JWT authentication
             if "auth" in config:
                 auth_config = config["auth"]
                 
-                # Check if OAuth credentials are provided
-                if all(k in auth_config for k in ["client_id", "client_secret"]):
-                    logger.info("OAuth credentials detected, passing through to mock server for validation")
-                    # Keep the original OAuth credentials - don't transform them
-                    # The mock server will handle validation
+                # Check if JWT credentials are provided
+                if "jwt_token" in auth_config and "client_id" in auth_config:
+                    logger.info("EMoney JWT credentials detected, passing through to server for validation")
+                    # Keep the original JWT credentials - don't transform them
+                    # The EMoney server will handle validation
                 elif "accessToken" in auth_config:
                     # If somehow an access token is already present, that's fine too
                     logger.info("Access token already present in config")
                 else:
-                    logger.warning("Auth config present but missing required fields")
+                    logger.warning("Auth config present but missing required EMoney JWT fields")
+                    # Set default EMoney auth structure
+                    config["auth"] = {
+                        "api_key": "emoney-api-key-67890",
+                        "client_id": "emoney-client-id-12345",
+                        "firm_id": "firm-12345",
+                        "jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "scope": "API"
+                    }
             else:
                 logger.warning("No auth configuration provided in scan config")
+                # Set default EMoney auth structure
+                config["auth"] = {
+                    "api_key": "emoney-api-key-67890",
+                    "client_id": "emoney-client-id-12345",
+                    "firm_id": "firm-12345",
+                    "jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "scope": "API"
+                }
                 
             # Ensure filters exist with proper structure
             if "filters" not in config:
@@ -228,21 +244,20 @@ class WealthboxIdentityConnector:
                     except Exception as date_error:
                         logger.warning(f"Could not validate date range: {date_error}")
             
-            # FIXED: Remove fields that the mock server doesn't recognize
-            # Remove batchSize from filters
-            batch_size = config["filters"].pop("batchSize", None)
-            if batch_size:
-                logger.debug(f"Removed batchSize ({batch_size}) from filters (not supported by mock server)")
+            # Handle EMoney-specific filter fields
+            # Keep batchSize as EMoney supports it
+            batch_size = config["filters"].get("batchSize", 100)
+            config["filters"]["batchSize"] = batch_size
             
-            # Remove includeArchived from filters if present
-            include_archived = config["filters"].pop("includeArchived", None)
-            if include_archived is not None:
-                logger.debug(f"Removed includeArchived ({include_archived}) from filters (not supported by mock server)")
+            # Handle includeInactive for EMoney identity service
+            include_inactive = config["filters"].get("includeInactive", False)
+            config["filters"]["includeInactive"] = include_inactive
+            logger.debug(f"EMoney identity filters - batchSize: {batch_size}, includeInactive: {include_inactive}")
                 
             # Generate a scanId if not provided
             if "scanId" not in config:
                 import uuid
-                config["scanId"] = f"wealthbox-{self.service_key}-scan-{str(uuid.uuid4())[:8]}"
+                config["scanId"] = f"emoney-{self.service_key}-2025-{str(uuid.uuid4())[:6]}"
                 
             logger.info(f"Starting {self.service_key} scan with ID {config.get('scanId')}")
             logger.debug(f"Scan config being sent: {json.dumps(scan_config, indent=2)}")

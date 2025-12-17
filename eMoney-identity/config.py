@@ -4,9 +4,9 @@ from typing import Dict, Any
 
 class Config:
     """Base application configuration"""
-    APP_VERSION= os.environ.get('APP_VERSION', '1.0.0')
-    APP_TITLE = os.environ.get('APP_TITLE', 'Data Extraction Service')
-    APP_DESCRIPTION = os.environ.get('APP_DESCRIPTION', 'Service for extracting and loading data using DLT')
+    APP_VERSION = os.environ.get('APP_VERSION', '1.0.0')
+    APP_TITLE = os.environ.get('APP_TITLE', 'eMoney Identity Data Extraction Service')
+    APP_DESCRIPTION = os.environ.get('APP_DESCRIPTION', 'Service for extracting and loading eMoney identity data using DLT')
 
     # Flask settings
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production-immediately')
@@ -25,10 +25,10 @@ class Config:
     # Database settings for DLT PostgreSQL destination
     DB_HOST = os.environ.get('DB_HOST', 'localhost')
     DB_PORT = int(os.environ.get('DB_PORT', 5432))
-    DB_NAME = os.environ.get('DB_NAME', 'extracted_data')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_identity_data')
     DB_USER = os.environ.get('DB_USER', 'postgres')
     DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
-    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'main')
+    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'emoney_identity')
     
     # Connection pool settings
     DB_POOL_SIZE = int(os.environ.get('DB_POOL_SIZE', 10))
@@ -37,43 +37,32 @@ class Config:
     DB_POOL_RECYCLE = int(os.environ.get('DB_POOL_RECYCLE', 3600))
     
     # DLT specific settings
-    DLT_PIPELINE_NAME = os.environ.get('DLT_PIPELINE_NAME', 'data_extraction')
+    DLT_PIPELINE_NAME = os.environ.get('DLT_PIPELINE_NAME', 'emoney_identity_extraction')
     DLT_WORKING_DIR = os.environ.get('DLT_WORKING_DIR', '.dlt')
     DLT_RUNTIME_ENV = os.environ.get('DLT_RUNTIME_ENV', 'production')
     
-    # External API settings
-    API_BASE_URL = os.environ.get('API_BASE_URL', 'https://api.example.com')
-    API_TIMEOUT = int(os.environ.get('API_TIMEOUT', 30))
-    API_RATE_LIMIT = int(os.environ.get('API_RATE_LIMIT', 100))
-    API_USERS_ENDPOINT = os.environ.get('API_USERS_ENDPOINT', '/users')
-    API_TEAMS_ENDPOINT = os.environ.get('API_TEAMS_ENDPOINT', '/teams')
-    API_RETRY_ATTEMPTS = int(os.environ.get('API_RETRY_ATTEMPTS', 3))
-    API_RETRY_DELAY = int(os.environ.get('API_RETRY_DELAY', 1))
-
     # eMoney API Configuration
-    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://167.172.66.204:6820')
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
     EMONEY_API_TIMEOUT = int(os.environ.get('EMONEY_API_TIMEOUT', 30))
     EMONEY_API_RATE_LIMIT = int(os.environ.get('EMONEY_API_RATE_LIMIT', 100))
     EMONEY_RETRY_ATTEMPTS = int(os.environ.get('EMONEY_RETRY_ATTEMPTS', 3))
     EMONEY_RETRY_DELAY = int(os.environ.get('EMONEY_RETRY_DELAY', 1))
 
-    # Endpoint Configuration Variables - Allow override via environment
-    # Based on eMoney Advisor API documentation
-    EMONEY_USERS_ENDPOINT = os.environ.get('EMONEY_USERS_ENDPOINT', '/users')
-    EMONEY_OFFICES_ENDPOINT = os.environ.get('EMONEY_OFFICES_ENDPOINT', '/offices')
-    EMONEY_ROLES_ENDPOINT = os.environ.get('EMONEY_ROLES_ENDPOINT', '/roles')
-    EMONEY_PERMISSIONS_ENDPOINT = os.environ.get('EMONEY_PERMISSIONS_ENDPOINT', '/permissions')
-    EMONEY_SHARINGRULES_ENDPOINT = os.environ.get('EMONEY_SHARINGRULES_ENDPOINT', '/sharingrules')
-    EMONEY_SHARING_RULES_ENDPOINT = os.environ.get('EMONEY_SHARING_RULES_ENDPOINT', '/sharingrules')  # Alias
-    EMONEY_LOGONS_ENDPOINT = os.environ.get('EMONEY_LOGONS_ENDPOINT', '/logons')
+    # eMoney Identity Endpoint Configuration Variables
+    EMONEY_USERS_ENDPOINT = "/users"
+    EMONEY_ROLES_ENDPOINT = "/roles"
+    EMONEY_PERMISSIONS_ENDPOINT = "/permissions"
+    EMONEY_OFFICES_ENDPOINT = "/offices"
+    EMONEY_LOGONS_ENDPOINT = "/logons"
+    EMONEY_SHARINGRULES_ENDPOINT = "/sharingrules"
 
     # HMAC authentication settings
     HMAC_SECRET_KEY = os.environ.get('HMAC_SECRET_KEY', 'change-this-in-production')
     HMAC_ALGORITHM = os.environ.get('HMAC_ALGORITHM', 'SHA256')
-    HMAC_ALLOWED_CLIENT_IDS = os.environ.get('HMAC_ALLOWED_CLIENT_IDS', 'orion-controller-service').split(',')
-    HMAC_HEADER_NAME = os.environ.get('HMAC_HEADER_NAME', 'X-Orion-Signature')
-    HMAC_TIMESTAMP_HEADER = os.environ.get('HMAC_TIMESTAMP_HEADER', 'X-Orion-Timestamp')
-    HMAC_CLIENT_ID_HEADER = os.environ.get('HMAC_CLIENT_ID_HEADER', 'X-Orion-Client-ID')
+    HMAC_ALLOWED_CLIENT_IDS = os.environ.get('HMAC_ALLOWED_CLIENT_IDS', 'emoney-controller-service').split(',')
+    HMAC_HEADER_NAME = os.environ.get('HMAC_HEADER_NAME', 'X-Emoney-Signature')
+    HMAC_TIMESTAMP_HEADER = os.environ.get('HMAC_TIMESTAMP_HEADER', 'X-Emoney-Timestamp')
+    HMAC_CLIENT_ID_HEADER = os.environ.get('HMAC_CLIENT_ID_HEADER', 'X-Emoney-Client-ID')
     HMAC_SIGNATURE_MAX_AGE = int(os.environ.get('HMAC_SIGNATURE_MAX_AGE', 300))  # 5 minutes
     HMAC_ENABLED = os.environ.get('HMAC_ENABLED', 'False').lower() == 'true'
     
@@ -106,7 +95,7 @@ class Config:
     LOKI_USERNAME = os.environ.get('LOKI_USERNAME', '')
     LOKI_PASSWORD = os.environ.get('LOKI_PASSWORD', '')
     LOKI_LABELS = {
-        'app': 'data_extraction',
+        'app': 'emoney_identity_extraction',
         'env': os.environ.get('FLASK_ENV', 'development'),
         'service': 'api'
     }
@@ -139,24 +128,19 @@ class Config:
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '0'))
 
     # Kafka settings (optional)
-    KAFFKA_ENABLED = os.environ.get('KAFFKA_ENABLED', 'False').lower() == 'true'
+    KAFKA_ENABLED = os.environ.get('KAFKA_ENABLED', 'False').lower() == 'true'
     KAFKA_BOOTSTRAP_SERVERS = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
     KAFKA_TOPIC_1 = os.environ.get('KAFKA_TOPIC', 'kafka_topic_1')
     KAFKA_TOPIC_2 = os.environ.get('KAFKA_TOPIC_2', 'kafka_topic_2')
     KAFKA_TOPIC_3 = os.environ.get('KAFKA_TOPIC_3', 'kafka_topic_3')
 
-    # Extraction Control Variables
+    # Extraction Control Variables for eMoney Identity entities
+    
     # User extraction control variables
     USER_CHECKPOINT_FREQUENCY = int(os.environ.get('USER_CHECKPOINT_FREQUENCY', 10))
     USER_PAUSE_CHECK_FREQUENCY = int(os.environ.get('USER_PAUSE_CHECK_FREQUENCY', 5))
     USER_CANCEL_CHECK_FREQUENCY = int(os.environ.get('USER_CANCEL_CHECK_FREQUENCY', 2))
     USER_MAX_BATCHES = int(os.environ.get('USER_MAX_BATCHES', 1000))
-
-    # Office extraction control variables
-    OFFICE_CHECKPOINT_FREQUENCY = int(os.environ.get('OFFICE_CHECKPOINT_FREQUENCY', 10))
-    OFFICE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('OFFICE_PAUSE_CHECK_FREQUENCY', 5))
-    OFFICE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('OFFICE_CANCEL_CHECK_FREQUENCY', 2))
-    OFFICE_MAX_BATCHES = int(os.environ.get('OFFICE_MAX_BATCHES', 1000))
 
     # Role extraction control variables
     ROLE_CHECKPOINT_FREQUENCY = int(os.environ.get('ROLE_CHECKPOINT_FREQUENCY', 10))
@@ -170,17 +154,23 @@ class Config:
     PERMISSION_CANCEL_CHECK_FREQUENCY = int(os.environ.get('PERMISSION_CANCEL_CHECK_FREQUENCY', 2))
     PERMISSION_MAX_BATCHES = int(os.environ.get('PERMISSION_MAX_BATCHES', 1000))
 
-    # Sharing Rule extraction control variables
-    SHARING_RULE_CHECKPOINT_FREQUENCY = int(os.environ.get('SHARING_RULE_CHECKPOINT_FREQUENCY', 10))
-    SHARING_RULE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('SHARING_RULE_PAUSE_CHECK_FREQUENCY', 5))
-    SHARING_RULE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('SHARING_RULE_CANCEL_CHECK_FREQUENCY', 2))
-    SHARING_RULE_MAX_BATCHES = int(os.environ.get('SHARING_RULE_MAX_BATCHES', 1000))
+    # Office extraction control variables
+    OFFICE_CHECKPOINT_FREQUENCY = int(os.environ.get('OFFICE_CHECKPOINT_FREQUENCY', 10))
+    OFFICE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('OFFICE_PAUSE_CHECK_FREQUENCY', 5))
+    OFFICE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('OFFICE_CANCEL_CHECK_FREQUENCY', 2))
+    OFFICE_MAX_BATCHES = int(os.environ.get('OFFICE_MAX_BATCHES', 1000))
 
     # Logon extraction control variables
     LOGON_CHECKPOINT_FREQUENCY = int(os.environ.get('LOGON_CHECKPOINT_FREQUENCY', 10))
     LOGON_PAUSE_CHECK_FREQUENCY = int(os.environ.get('LOGON_PAUSE_CHECK_FREQUENCY', 5))
     LOGON_CANCEL_CHECK_FREQUENCY = int(os.environ.get('LOGON_CANCEL_CHECK_FREQUENCY', 2))
     LOGON_MAX_BATCHES = int(os.environ.get('LOGON_MAX_BATCHES', 1000))
+
+    # SharingRule extraction control variables
+    SHARINGRULE_CHECKPOINT_FREQUENCY = int(os.environ.get('SHARINGRULE_CHECKPOINT_FREQUENCY', 10))
+    SHARINGRULE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('SHARINGRULE_PAUSE_CHECK_FREQUENCY', 5))
+    SHARINGRULE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('SHARINGRULE_CANCEL_CHECK_FREQUENCY', 2))
+    SHARINGRULE_MAX_BATCHES = int(os.environ.get('SHARINGRULE_MAX_BATCHES', 1000))
     
     @classmethod
     def get_database_url(cls) -> str:
@@ -218,14 +208,18 @@ class Config:
             'scan_timeout_hours': cls.SCAN_TIMEOUT_HOURS,
             'default_batch_size': cls.DEFAULT_BATCH_SIZE,
             
-            # External API configuration
-            'api_base_url': cls.API_BASE_URL,
-            'api_timeout': cls.API_TIMEOUT,
-            'api_rate_limit': cls.API_RATE_LIMIT,
-            'api_users_endpoint': cls.API_USERS_ENDPOINT,
-            'api_teams_endpoint': cls.API_TEAMS_ENDPOINT,
-            'api_retry_attempts': cls.API_RETRY_ATTEMPTS,
-            'api_retry_delay': cls.API_RETRY_DELAY,
+            # eMoney API configuration
+            'emoney_api_base_url': cls.EMONEY_API_BASE_URL,
+            'emoney_api_timeout': cls.EMONEY_API_TIMEOUT,
+            'emoney_api_rate_limit': cls.EMONEY_API_RATE_LIMIT,
+            'emoney_users_endpoint': cls.EMONEY_USERS_ENDPOINT,
+            'emoney_roles_endpoint': cls.EMONEY_ROLES_ENDPOINT,
+            'emoney_permissions_endpoint': cls.EMONEY_PERMISSIONS_ENDPOINT,
+            'emoney_offices_endpoint': cls.EMONEY_OFFICES_ENDPOINT,
+            'emoney_logons_endpoint': cls.EMONEY_LOGONS_ENDPOINT,
+            'emoney_sharingrules_endpoint': cls.EMONEY_SHARINGRULES_ENDPOINT,
+            'emoney_retry_attempts': cls.EMONEY_RETRY_ATTEMPTS,
+            'emoney_retry_delay': cls.EMONEY_RETRY_DELAY,
             
             # Cache configuration
             'cache_enabled': cls.CACHE_ENABLED,
@@ -257,13 +251,17 @@ class Config:
                 'environment': cls.DLT_RUNTIME_ENV
             },
             'sources': {
-                'data_source': {
-                    'base_url': cls.API_BASE_URL,
-                    'users_endpoint': cls.API_USERS_ENDPOINT,
-                    'teams_endpoint': cls.API_TEAMS_ENDPOINT,
+                'emoney_identity_source': {
+                    'base_url': cls.EMONEY_API_BASE_URL,
+                    'users_endpoint': cls.EMONEY_USERS_ENDPOINT,
+                    'roles_endpoint': cls.EMONEY_ROLES_ENDPOINT,
+                    'permissions_endpoint': cls.EMONEY_PERMISSIONS_ENDPOINT,
+                    'offices_endpoint': cls.EMONEY_OFFICES_ENDPOINT,
+                    'logons_endpoint': cls.EMONEY_LOGONS_ENDPOINT,
+                    'sharingrules_endpoint': cls.EMONEY_SHARINGRULES_ENDPOINT,
                     'batch_size': cls.DEFAULT_BATCH_SIZE,
-                    'timeout': cls.API_TIMEOUT,
-                    'retry_attempts': cls.API_RETRY_ATTEMPTS
+                    'timeout': cls.EMONEY_API_TIMEOUT,
+                    'retry_attempts': cls.EMONEY_RETRY_ATTEMPTS
                 }
             }
         }
@@ -327,8 +325,6 @@ class Config:
     def get_api_config(cls) -> Dict[str, Any]:
         """
         Get API-specific configuration settings.
-        This function is useful for passing a clean dictionary of API settings
-        to a service or client without including other application-level config.
         """
         return {
             'title': cls.DLT_PIPELINE_NAME,
@@ -337,13 +333,17 @@ class Config:
             'docs_path': cls.API_DOCS_PATH,
             'docs_enabled': cls.API_DOCS_ENABLED,
             'prefix': cls.API_PREFIX,
-            'api_base_url': cls.API_BASE_URL,
-            'api_timeout': cls.API_TIMEOUT,
-            'api_rate_limit': cls.API_RATE_LIMIT,
-            'users_endpoint': cls.API_USERS_ENDPOINT,
-            'teams_endpoint': cls.API_TEAMS_ENDPOINT,
-            'retry_attempts': cls.API_RETRY_ATTEMPTS,
-            'retry_delay': cls.API_RETRY_DELAY,
+            'emoney_api_base_url': cls.EMONEY_API_BASE_URL,
+            'emoney_api_timeout': cls.EMONEY_API_TIMEOUT,
+            'emoney_api_rate_limit': cls.EMONEY_API_RATE_LIMIT,
+            'users_endpoint': cls.EMONEY_USERS_ENDPOINT,
+            'roles_endpoint': cls.EMONEY_ROLES_ENDPOINT,
+            'permissions_endpoint': cls.EMONEY_PERMISSIONS_ENDPOINT,
+            'offices_endpoint': cls.EMONEY_OFFICES_ENDPOINT,
+            'logons_endpoint': cls.EMONEY_LOGONS_ENDPOINT,
+            'sharingrules_endpoint': cls.EMONEY_SHARINGRULES_ENDPOINT,
+            'retry_attempts': cls.EMONEY_RETRY_ATTEMPTS,
+            'retry_delay': cls.EMONEY_RETRY_DELAY,
             "max_scan_list_limit": 100,
             "default_scan_list_limit": 20,
             "max_results_limit": 500,
@@ -359,7 +359,7 @@ class DevelopmentConfig(Config):
     TESTING = False
     
     # Use development database
-    DB_NAME = os.environ.get('DB_NAME', 'extracted_data_dev')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_identity_data_dev')
     
     # Relaxed settings for development
     MAX_CONCURRENT_SCANS = int(os.environ.get('MAX_CONCURRENT_SCANS', 2))
@@ -377,9 +377,7 @@ class DevelopmentConfig(Config):
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '2'))
 
-    # Use environment variable or default to production API
-    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://167.172.66.204:6820')
-    API_BASE_URL = os.environ.get('API_BASE_URL', 'http://167.172.66.204:6820')
+    EMONEY_API_BASE_URL = 'http://139.59.113.219:6820'
 
 
 class TestingConfig(Config):
@@ -388,8 +386,8 @@ class TestingConfig(Config):
     DEBUG = False
     
     # Use test database
-    DB_NAME = os.environ.get('DB_NAME', 'extracted_data_test')
-    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'main_test')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_identity_data_test')
+    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'emoney_identity_test')
     
     # Disable external services in testing
     CACHE_ENABLED = False
@@ -405,10 +403,12 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     BCRYPT_LOG_ROUNDS = 4
 
-    # Use mock server for testing
-    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://emoney_identity_mock_server:5001')
-    API_BASE_URL = os.environ.get('API_BASE_URL', 'http://emoney_identity_mock_server:5001')
+    EMONEY_API_BASE_URL = 'http://139.59.113.219:6820'
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', 2))
+
+    # Test mode configuration for extraction
+    TEST_BATCH_DELAY_SECONDS = float(os.environ.get('TEST_BATCH_DELAY_SECONDS', 5))
+    TEST_RECORD_DELAY_SECONDS = float(os.environ.get('TEST_RECORD_DELAY_SECONDS', 0.1))
 
 
 class StagingConfig(Config):
@@ -417,7 +417,7 @@ class StagingConfig(Config):
     TESTING = False
     
     # Use staging database
-    DB_NAME = os.environ.get('DB_NAME', 'extracted_data_staging')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_identity_data_staging')
     
     # Production-like settings but with more logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG')
@@ -430,8 +430,7 @@ class StagingConfig(Config):
     FLASK_ENV = 'staging'
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', 0))
-    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://167.172.66.204:6820')
-    API_BASE_URL = os.environ.get('API_BASE_URL', 'http://167.172.66.204:6820')
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
 
 
 class ProductionConfig(Config):
@@ -440,7 +439,7 @@ class ProductionConfig(Config):
     TESTING = False
     
     # Production database
-    DB_NAME = os.environ.get('DB_NAME', 'extracted_data')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_identity_data')
     
     # Strict production settings
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
@@ -462,8 +461,7 @@ class ProductionConfig(Config):
     FLASK_ENV = 'production'
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '0'))
-    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://167.172.66.204:6820')
-    API_BASE_URL = os.environ.get('API_BASE_URL', 'http://167.172.66.204:6820')
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
     
     @classmethod
     def validate_production_config(cls):

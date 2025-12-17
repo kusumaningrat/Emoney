@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wealthbox Client Extraction Dashboard</title>
+    <link rel="stylesheet" href="/static/dashboard/style.css">
+</head>
+<body>
+    <div id="task-list">
+        <p>Loading tasks...</p>
+    </div>
+    
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-title">Task Details</h2>
+            
+            <div class="tab">
+                <button class="tablinks active" data-tab="details">Details</button>
+                <button class="tablinks" data-tab="config">Configuration</button>
+                <button class="tablinks" id="stream-tab" data-tab="stream">Stream Data</button>
+                <button class="tablinks" id="results-tab" data-tab="results">Results</button>
+            </div>
+            
+            <div id="details" class="tabcontent" style="display:block;">
+                <div id="details-content"></div>
+            </div>
+            
+            <div id="config" class="tabcontent">
+                <pre id="config-content"></pre>
+            </div>
+            
+            <div id="stream" class="tabcontent">
+                <button id="start-stream-btn">Start Streaming</button>
+                <div id="stream-container"></div>
+            </div>
+            
+            <div id="results" class="tabcontent">
+                <div id="tables-list"></div>
+                <div id="table-data"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/dashboard/script.js"></script>
+</body>
+</html>

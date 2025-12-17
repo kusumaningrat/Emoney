@@ -1,5 +1,5 @@
 """
-Flask-RESTX route definitions for Data Extraction API with minimal Loki logging
+Flask-RESTX route definitions for eMoney Identity Data Extraction API
 """
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -13,7 +13,7 @@ import uuid
 from .swagger_schemas import register_models
 from .schemas import (
     validate_scan_request, 
-    validate_pagination_params, 
+    validate_limit_offset_params,
     validate_cleanup_request,
     ScanConfig
 )
@@ -36,19 +36,19 @@ def create_api():
         'hmac_auth': {
             'type': 'apiKey',
             'in': 'header',
-            'name': 'X-eMoney-Signature',
+            'name': 'X-eMoney-Identity-Signature',
             'description': 'HMAC signature for request authentication'
         },
         'hmac_timestamp': {
             'type': 'apiKey',
             'in': 'header',
-            'name': 'X-eMoney-Timestamp',
+            'name': 'X-eMoney-Identity-Timestamp',
             'description': 'Unix timestamp for request freshness'
         },
         'hmac_client_id': {
             'type': 'apiKey',
             'in': 'header',
-            'name': 'X-eMoney-Client-ID',
+            'name': 'X-eMoney-Identity-Client-ID',
             'description': 'Client identifier for API access'
         }
     }
@@ -60,7 +60,7 @@ def create_api():
         doc=api_config['docs_path'],
         prefix=api_config['prefix'],
         authorizations=authorizations,
-        security=['hmac_auth', 'hmac_timestamp', 'hmac_client_id']  # Apply to all endpoints by default
+        security=['hmac_auth', 'hmac_timestamp', 'hmac_client_id']
     )
     
     models = register_models(api)
@@ -68,8 +68,13 @@ def create_api():
     kafka_service = KafkaStreamService(extraction_service)
     
     # Create namespaces
-    scan_ns = Namespace('scan', description='Scan operations')
-    users_ns = Namespace('users', description='User-related operations')
+    scan_ns = Namespace('scan', description='Identity scan operations')
+    users_ns = Namespace('users', description='User operations')
+    roles_ns = Namespace('roles', description='Role operations')
+    permissions_ns = Namespace('permissions', description='Permission operations')
+    offices_ns = Namespace('offices', description='Office operations')
+    logons_ns = Namespace('logons', description='Logon operations')
+    sharingrules_ns = Namespace('sharingrules', description='Sharing rule operations')
     results_ns = Namespace('results', description='Results retrieval operations')
     pipeline_ns = Namespace('pipeline', description='Pipeline operations')
     maintenance_ns = Namespace('maintenance', description='Maintenance operations')
@@ -77,6 +82,11 @@ def create_api():
     
     api.add_namespace(scan_ns)
     api.add_namespace(users_ns)
+    api.add_namespace(roles_ns)
+    api.add_namespace(permissions_ns)
+    api.add_namespace(offices_ns)
+    api.add_namespace(logons_ns)
+    api.add_namespace(sharingrules_ns)
     api.add_namespace(results_ns)
     api.add_namespace(pipeline_ns)
     api.add_namespace(maintenance_ns)
@@ -90,12 +100,12 @@ def create_api():
         @scan_ns.response(500, 'Internal server error')
         @hmac_auth_required
         def post(self):
-            """Start a new data extraction scan"""
+            """Start a new identity data extraction scan"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
                 logger.info(
-                    "Starting scan request",
+                    "Starting identity scan request",
                     extra={
                         'request_id': request_id,
                         'operation': 'start_scan',
@@ -159,24 +169,26 @@ def create_api():
                 executor.submit(asyncio.run, extraction_service.start_scan(validated_config))
                 
                 logger.info(
-                    "Scan accepted for processing",
+                    "Identity scan accepted for processing",
                     extra={
                         'request_id': request_id,
                         'scan_id': scan_config.scanId,
-                        'organization_id': scan_config.organizationId
+                        'organization_id': scan_config.organizationId,
+                        'entity_types': scan_config.type
                     }
                 )
                 
                 log_business_event(
                     logger,
-                    "scan_creation_accepted",
+                    "identity_scan_creation_accepted",
                     scan_id=scan_config.scanId,
-                    organization_id=scan_config.organizationId
+                    organization_id=scan_config.organizationId,
+                    entity_types=scan_config.type
                 )
                 
                 return {
                     "success": True,
-                    "message": "Scan initialization accepted and is now processing in the background."
+                    "message": "Identity scan initialization accepted and is now processing in the background."
                 }, 202
 
             except Exception as e:
@@ -197,7 +209,7 @@ def create_api():
         @scan_ns.response(500, 'Internal server error')
         @hmac_auth_required
         def get(self, scan_id):
-            """Get the status of a specific scan"""
+            """Get the status of a specific identity scan"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -244,7 +256,7 @@ def create_api():
         @scan_ns.response(500, 'Internal server error')
         @hmac_auth_required
         def post(self, scan_id):
-            """Cancel a running scan"""
+            """Cancel a running identity scan"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -252,10 +264,10 @@ def create_api():
                 
                 if result['success']:
                     logger.info(
-                        "Scan cancelled",
+                        "Identity scan cancelled",
                         extra={'request_id': request_id, 'scan_id': scan_id}
                     )
-                    log_business_event(logger, "scan_cancelled", scan_id=scan_id)
+                    log_business_event(logger, "identity_scan_cancelled", scan_id=scan_id)
                     return result
                 else:
                     logger.warning(
@@ -284,6 +296,103 @@ def create_api():
                     "error": str(e)
                 }, 500
 
+    @scan_ns.route('/<string:scan_id>/pause')
+    class PauseScan(Resource):
+        @scan_ns.response(400, 'Cannot pause scan')
+        @scan_ns.response(404, 'Scan not found')
+        @scan_ns.response(500, 'Internal server error')
+        @hmac_auth_required
+        def post(self, scan_id):
+            """Pause a running identity scan"""
+            request_id = getattr(g, 'request_id', str(uuid.uuid4()))
+            
+            try:
+                result = extraction_service.pause_scan(scan_id)
+                
+                if result['success']:
+                    logger.info(
+                        "Identity scan paused successfully",
+                        extra={'request_id': request_id, 'scan_id': scan_id}
+                    )
+                    log_business_event(logger, "identity_scan_paused", scan_id=scan_id)
+                    return result
+                else:
+                    status_code = 404 if "not found" in result['message'].lower() else 400
+                    logger.warning(
+                        "Scan pause failed",
+                        extra={
+                            'request_id': request_id,
+                            'scan_id': scan_id,
+                            'reason': result.get('message')
+                        }
+                    )
+                    return {
+                        "success": False,
+                        "message": result['message'],
+                        "error": result['message']
+                    }, status_code
+
+            except Exception as e:
+                logger.error(
+                    "Error pausing scan",
+                    extra={'request_id': request_id, 'scan_id': scan_id, 'error': str(e)},
+                    exc_info=True
+                )
+                return {
+                    "success": False,
+                    "message": f"Failed to pause scan: {str(e)}",
+                    "error": str(e)
+                }, 500
+
+    @scan_ns.route('/<string:scan_id>/resume')
+    class ResumeScan(Resource):
+        @scan_ns.response(400, 'Cannot resume scan')
+        @scan_ns.response(404, 'Scan not found')
+        @scan_ns.response(500, 'Internal server error')
+        @hmac_auth_required
+        def post(self, scan_id):
+            """Resume a paused identity scan"""
+            request_id = getattr(g, 'request_id', str(uuid.uuid4()))
+            
+            try:
+                loop = asyncio.get_event_loop()
+                result = loop.run_until_complete(extraction_service.resume_scan(scan_id))
+                
+                if result['success']:
+                    logger.info(
+                        "Identity scan resumed successfully",
+                        extra={'request_id': request_id, 'scan_id': scan_id}
+                    )
+                    log_business_event(logger, "identity_scan_resumed", scan_id=scan_id)
+                    return result
+                else:
+                    status_code = 404 if "not found" in result['message'].lower() else 400
+                    logger.warning(
+                        "Scan resume failed",
+                        extra={
+                            'request_id': request_id,
+                            'scan_id': scan_id,
+                            'reason': result.get('message')
+                        }
+                    )
+                    return {
+                        "success": False,
+                        "message": result['message'],
+                        "error": result['message']
+                    }, status_code
+
+            except Exception as e:
+                logger.error(
+                    "Error resuming scan",
+                    extra={'request_id': request_id, 'scan_id': scan_id, 'error': str(e)},
+                    exc_info=True
+                )
+                return {
+                    "success": False,
+                    "message": f"Failed to resume scan: {str(e)}",
+                    "error": str(e)
+                }, 500
+
     @scan_ns.route('/list')
     class ListScans(Resource):
         @scan_ns.param('organizationId', 'Filter by organization ID')
@@ -291,7 +400,7 @@ def create_api():
         @scan_ns.param('offset', 'Number of results to skip', type=int, default=0)
         @hmac_auth_required
         def get(self):
-            """List all scans with optional filtering and pagination"""
+            """List all identity scans with optional filtering and pagination"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -299,7 +408,7 @@ def create_api():
                 
                 # Validate pagination
                 try:
-                    limit, offset = validate_pagination_params(
+                    limit, offset = validate_limit_offset_params(
                         request.args.get('limit', api_config['default_scan_list_limit']), 
                         request.args.get('offset', 0),
                         max_limit=api_config['max_scan_list_limit']
@@ -320,7 +429,7 @@ def create_api():
                 total = len(scans) + offset if len(scans) == limit else offset + len(scans)
                 
                 logger.debug(
-                    "Scans listed",
+                    "Identity scans listed",
                     extra={
                         'request_id': request_id,
                         'count': len(scans),
@@ -359,7 +468,7 @@ def create_api():
         @scan_ns.param('organizationId', 'Filter statistics by organization ID')
         @hmac_auth_required
         def get(self):
-            """Get scan statistics"""
+            """Get identity scan statistics"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -389,6 +498,80 @@ def create_api():
                     "error": str(e)
                 }, 500
 
+    @scan_ns.route('/<string:scan_id>/remove')
+    class RemoveScan(Resource):
+        @scan_ns.response(404, 'Scan not found')
+        @scan_ns.response(400, 'Cannot remove active scan')
+        @scan_ns.response(500, 'Internal server error')
+        @hmac_auth_required
+        def delete(self, scan_id):
+            """Remove an identity scan and its data"""
+            request_id = getattr(g, 'request_id', str(uuid.uuid4()))
+            
+            try:
+                scan_status = extraction_service.get_scan_status(scan_id)
+                if not scan_status:
+                    logger.warning(
+                        "Cannot remove scan: not found",
+                        extra={'request_id': request_id, 'scan_id': scan_id}
+                    )
+                    return {
+                        "success": False,
+                        "message": f"No scan found with ID: {scan_id}",
+                        "error": f"No scan found with ID: {scan_id}"
+                    }, 404
+
+                if scan_status['status'] in ['running', 'pending']:
+                    logger.warning(
+                        "Cannot remove active scan",
+                        extra={
+                            'request_id': request_id,
+                            'scan_id': scan_id,
+                            'status': scan_status['status']
+                        }
+                    )
+                    return {
+                        "success": False,
+                        "message": "Cannot remove active scan. Please cancel first.",
+                        "error": "Cannot remove active scan"
+                    }, 400
+
+                result = extraction_service.remove_scan(scan_id)
+                
+                if result['success']:
+                    logger.info(
+                        "Identity scan removed",
+                        extra={'request_id': request_id, 'scan_id': scan_id}
+                    )
+                    log_business_event(logger, "identity_scan_removed", scan_id=scan_id)
+                    return result
+                else:
+                    logger.error(
+                        "Scan removal failed",
+                        extra={
+                            'request_id': request_id,
+                            'scan_id': scan_id,
+                            'reason': result.get('message')
+                        }
+                    )
+                    return {
+                        "success": False,
+                        "message": result['message'],
+                        "error": result['message']
+                    }, 400
+
+            except Exception as e:
+                logger.error(
+                    "Error removing scan",
+                    extra={'request_id': request_id, 'scan_id': scan_id, 'error': str(e)},
+                    exc_info=True
+                )
+                return {
+                    "success": False,
+                    "message": f"Failed to remove scan: {str(e)}",
+                    "error": str(e)
+                }, 500
+
     @results_ns.route('/<string:scan_id>/tables')
     class GetAvailableTables(Resource):
         @results_ns.response(404, 'Scan not found')
@@ -396,7 +579,7 @@ def create_api():
         @results_ns.response(500, 'Internal server error')
         @hmac_auth_required
         def get(self, scan_id):
-            """Get available tables for a completed scan"""
+            """Get available tables for a completed identity scan"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -442,7 +625,7 @@ def create_api():
 
     @results_ns.route('/<string:scan_id>/result')
     class GetScanResults(Resource):
-        @results_ns.param('tableName', 'Name of the table to query (default: user)', default='user')
+        @results_ns.param('tableName', 'Name of the table to query (e.g., user, role, permission, office, logon, sharingrule)', default='user')
         @results_ns.param('limit', f'Number of records per page (max {api_config["max_results_limit"]})', type=int, default=api_config['default_results_limit'])
         @results_ns.param('offset', 'Number of records to skip', type=int, default=0)
         @results_ns.response(404, 'Scan not found')
@@ -450,16 +633,15 @@ def create_api():
         @results_ns.response(500, 'Internal server error')
         @hmac_auth_required
         def get(self, scan_id):
-            """Get scan results with pagination and table selection"""
+            """Get identity scan results with pagination and table selection"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
                 table_name = request.args.get('tableName', 'user')
                 
-                
                 # Validate pagination
                 try:
-                    limit, offset = validate_pagination_params(
+                    limit, offset = validate_limit_offset_params(
                         request.args.get('limit', api_config['default_results_limit']), 
                         request.args.get('offset', 0),
                         max_limit=api_config['max_results_limit']
@@ -480,7 +662,7 @@ def create_api():
                 
                 if result['success']:
                     logger.debug(
-                        "Results retrieved",
+                        "Identity results retrieved",
                         extra={
                             'request_id': request_id,
                             'scan_id': scan_id,
@@ -528,19 +710,16 @@ def create_api():
         @stream_ns.param('limit', 'Records per stream', type=int, default=100)
         @stream_ns.param('offset', 'Starting position', type=int, default=0)
         def get(self, scan_id):
-            """Stream scan data to Kafka"""
-            # Get parameters
+            """Stream identity scan data to Kafka"""
             limit = int(request.args.get('limit', 100))
             offset = int(request.args.get('offset', 0))
-                            
-            # Just pass to service
             return kafka_service.stream_scan_data(scan_id, limit, offset)
 
     @pipeline_ns.route('/info')
     class PipelineInfo(Resource):
         @hmac_auth_required
         def get(self):
-            """Get information about the DLT pipeline configuration"""
+            """Get information about the identity DLT pipeline configuration"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -574,7 +753,7 @@ def create_api():
         @maintenance_ns.response(400, 'Invalid request data')
         @hmac_auth_required
         def post(self):
-            """Clean up old scan results"""
+            """Clean up old identity scan results"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -607,7 +786,7 @@ def create_api():
                 
                 log_security_event(
                     logger,
-                    "data_cleanup_performed",
+                    "identity_data_cleanup_performed",
                     cleaned_count=cleaned_count,
                     days_old=days_old
                 )
@@ -636,7 +815,7 @@ def create_api():
         @maintenance_ns.marshal_with(models['api_response_model'])
         @hmac_auth_required
         def post(self):
-            """Detect and mark crashed jobs"""
+            """Detect and mark crashed identity extraction jobs"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -667,7 +846,7 @@ def create_api():
                 if len(crashed_job_ids) > 0:
                     log_security_event(
                         logger,
-                        "crashed_jobs_detected",
+                        "crashed_identity_jobs_detected",
                         severity='WARNING',
                         crashed_count=len(crashed_job_ids)
                     )
@@ -693,88 +872,12 @@ def create_api():
                     "message": f"Failed to detect crashed jobs: {str(e)}",
                     "error": str(e)
                 }, 500
-            
-    @scan_ns.route('/<string:scan_id>/remove')
-    class RemoveScan(Resource):
-        @scan_ns.response(404, 'Scan not found')
-        @scan_ns.response(400, 'Cannot remove active scan')
-        @scan_ns.response(500, 'Internal server error')
-        @hmac_auth_required
-        def delete(self, scan_id):
-            """Remove a scan and its data"""
-            request_id = getattr(g, 'request_id', str(uuid.uuid4()))
-            
-            try:
-                # Check if scan exists
-                scan_status = extraction_service.get_scan_status(scan_id)
-                if not scan_status:
-                    logger.warning(
-                        "Cannot remove scan: not found",
-                        extra={'request_id': request_id, 'scan_id': scan_id}
-                    )
-                    return {
-                        "success": False,
-                        "message": f"No scan found with ID: {scan_id}",
-                        "error": f"No scan found with ID: {scan_id}"
-                    }, 404
-
-                # Check if scan is still running
-                if scan_status['status'] in ['running', 'pending']:
-                    logger.warning(
-                        "Cannot remove active scan",
-                        extra={
-                            'request_id': request_id,
-                            'scan_id': scan_id,
-                            'status': scan_status['status']
-                        }
-                    )
-                    return {
-                        "success": False,
-                        "message": "Cannot remove active scan. Please cancel first.",
-                        "error": "Cannot remove active scan"
-                    }, 400
-
-                result = extraction_service.remove_scan(scan_id)
-                
-                if result['success']:
-                    logger.info(
-                        "Scan removed",
-                        extra={'request_id': request_id, 'scan_id': scan_id}
-                    )
-                    log_business_event(logger, "scan_removed", scan_id=scan_id)
-                    return result
-                else:
-                    logger.error(
-                        "Scan removal failed",
-                        extra={
-                            'request_id': request_id,
-                            'scan_id': scan_id,
-                            'reason': result.get('message')
-                        }
-                    )
-                    return {
-                        "success": False,
-                        "message": result['message'],
-                        "error": result['message']
-                    }, 400
-
-            except Exception as e:
-                logger.error(
-                    "Error removing scan",
-                    extra={'request_id': request_id, 'scan_id': scan_id, 'error': str(e)},
-                    exc_info=True
-                )
-                return {
-                    "success": False,
-                    "message": f"Failed to remove scan: {str(e)}",
-                    "error": str(e)
-                }, 500
 
     @api.route('/stats')
     class ServiceStats(Resource):
         @hmac_auth_required
         def get(self):
-            """Get service statistics"""
+            """Get identity extraction service statistics"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -805,7 +908,7 @@ def create_api():
     @api.route('/health')
     class Health(Resource):
         def get(self):
-            """Health check endpoint"""
+            """Health check endpoint for identity extraction service"""
             request_id = getattr(g, 'request_id', str(uuid.uuid4()))
             
             try:
@@ -820,7 +923,15 @@ def create_api():
                     "status": "healthy",
                     "timestamp": datetime.utcnow().isoformat(),
                     "service": config.DLT_PIPELINE_NAME,
-                    "pipeline": pipeline_info
+                    "pipeline": pipeline_info,
+                    "entities": [
+                        "User",
+                        "Role",
+                        "Permission",
+                        "Office",
+                        "Logon",
+                        "SharingRule"
+                    ]
                 }
                 
             except Exception as e:
@@ -836,108 +947,12 @@ def create_api():
                     "error": str(e)
                 }, 500
 
-    @scan_ns.route('/<string:scan_id>/pause')
-    class PauseScan(Resource):
-        @scan_ns.response(400, 'Cannot pause scan')
-        @scan_ns.response(404, 'Scan not found')
-        @scan_ns.response(500, 'Internal server error')
-        @hmac_auth_required
-        def post(self, scan_id):
-            """Pause a running scan"""
-            request_id = getattr(g, 'request_id', str(uuid.uuid4()))
-            
-            try:
-                result = extraction_service.pause_scan(scan_id)
-                
-                if result['success']:
-                    logger.info(
-                        "Scan paused successfully",
-                        extra={'request_id': request_id, 'scan_id': scan_id}
-                    )
-                    return result
-                else:
-                    status_code = 404 if "not found" in result['message'].lower() else 400
-                    logger.warning(
-                        "Scan pause failed",
-                        extra={
-                            'request_id': request_id,
-                            'scan_id': scan_id,
-                            'reason': result.get('message')
-                        }
-                    )
-                    return {
-                        "success": False,
-                        "message": result['message'],
-                        "error": result['message']
-                    }, status_code
-
-            except Exception as e:
-                logger.error(
-                    "Error pausing scan",
-                    extra={'request_id': request_id, 'scan_id': scan_id, 'error': str(e)},
-                    exc_info=True
-                )
-                return {
-                    "success": False,
-                    "message": f"Failed to pause scan: {str(e)}",
-                    "error": str(e)
-                }, 500
-
-    @scan_ns.route('/<string:scan_id>/resume')
-    class ResumeScan(Resource):
-        @scan_ns.response(400, 'Cannot resume scan')
-        @scan_ns.response(404, 'Scan not found')
-        @scan_ns.response(500, 'Internal server error')
-        @hmac_auth_required
-        def post(self, scan_id):
-            """Resume a paused scan"""
-            request_id = getattr(g, 'request_id', str(uuid.uuid4()))
-            
-            try:
-                # Use asyncio.create_task since resume_scan is async
-                loop = asyncio.get_event_loop()
-                result = loop.run_until_complete(extraction_service.resume_scan(scan_id))
-                
-                if result['success']:
-                    logger.info(
-                        "Scan resumed successfully",
-                        extra={'request_id': request_id, 'scan_id': scan_id}
-                    )
-                    log_business_event(logger, "scan_resumed", scan_id=scan_id)
-                    return result
-                else:
-                    status_code = 404 if "not found" in result['message'].lower() else 400
-                    logger.warning(
-                        "Scan resume failed",
-                        extra={
-                            'request_id': request_id,
-                            'scan_id': scan_id,
-                            'reason': result.get('message')
-                        }
-                    )
-                    return {
-                        "success": False,
-                        "message": result['message'],
-                        "error": result['message']
-                    }, status_code
-
-            except Exception as e:
-                logger.error(
-                    "Error resuming scan",
-                    extra={'request_id': request_id, 'scan_id': scan_id, 'error': str(e)},
-                    exc_info=True
-                )
-                return {
-                    "success": False,
-                    "message": f"Failed to resume scan: {str(e)}",
-                    "error": str(e)
-                }, 500
-
     logger.info(
-        "API created successfully",
+        "eMoney Identity API created successfully",
         extra={
             'operation': 'api_creation',
-            'service': config.DLT_PIPELINE_NAME
+            'service': config.DLT_PIPELINE_NAME,
+            'entities': ['User', 'Role', 'Permission', 'Office', 'Logon', 'SharingRule']
         }
     )
 

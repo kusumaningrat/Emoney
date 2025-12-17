@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wealthbox Scan Dashboard</title>
+    <title>EMoney Scan Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
@@ -14,8 +14,8 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <i class="fas fa-briefcase"></i>
-                    <span>Wealthbox</span>
+                    <i class="fas fa-coins"></i>
+                    <span>EMoney</span>
                 </div>
                 <button class="mobile-toggle" id="sidebar-toggle">
                     <i class="fas fa-bars"></i>
@@ -26,6 +26,7 @@
                     <li class="active"><a href="#"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
                     <li><a href="#"><i class="fas fa-history"></i> Scan History</a></li>
                     <li><a href="#"><i class="fas fa-chart-line"></i> Analytics</a></li>
+                    <li><a href="#"><i class="fas fa-shield-alt"></i> JWT Management</a></li>
                     <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
                 </ul>
             </nav>
@@ -33,7 +34,7 @@
 
         <main class="main-content">
             <header class="top-header">
-                <h1>Scan Dashboard</h1>
+                <h1>EMoney Scan Dashboard</h1>
                 <div class="header-actions">
                     <div class="refresh-status">
                         <span>Auto-refreshing every <span id="refresh-seconds">10</span>s</span>
@@ -46,7 +47,7 @@
                         </button>
                         <button id="new-scan-btn" class="btn btn-primary">
                             <i class="fas fa-plus"></i>
-                            <span>New Scan</span>
+                            <span>New EMoney Scan</span>
                         </button>
                     </div>
                 </div>
@@ -102,14 +103,14 @@
 
             <section class="content-section">
                 <div class="section-header">
-                    <h2>Recent Scans</h2>
+                    <h2>Recent EMoney Scans</h2>
                 </div>
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Type</th>
+                                <th>Service</th>
                                 <th>Status</th>
                                 <th>Entity Types</th>
                                 <th>Organization</th>
@@ -122,7 +123,7 @@
                             <tr>
                                 <td colspan="8" class="loading">
                                     <div class="loader"></div>
-                                    <span>Loading scans...</span>
+                                    <span>Loading EMoney scans...</span>
                                 </td>
                             </tr>
                         </tbody>
@@ -131,22 +132,23 @@
             </section>
         </main>
 
-        <!-- New Scan Modal -->
+        <!-- New EMoney Scan Modal -->
         <div id="new-scan-modal" class="modal">
-            <div class="modal-content">
+            <div class="modal-content emoney-modal">
                 <div class="modal-header">
-                    <h2>Start New Scan</h2>
+                    <h2><i class="fas fa-coins"></i> Start New EMoney Scan</h2>
                     <span class="close"><i class="fas fa-times"></i></span>
                 </div>
 
                 <form id="scan-form" class="modal-body">
                     <div class="form-group">
-                        <label for="service-type">Scan Type</label>
+                        <label for="service-type"><i class="fas fa-server"></i> EMoney Service Type</label>
                         <select id="service-type" name="scan_type" required>
-                            <option value="opportunity">Opportunity</option>
-                            <option value="identity">Identity</option>
-                            <option value="client">Client</option>
-                            <option value="activity">Activity</option>
+                            <option value="">Select EMoney Service...</option>
+                            <option value="account">Account & Assets</option>
+                            <option value="client">Client Management</option>
+                            <option value="financial_planning">Financial Planning</option>
+                            <option value="identity">Identity & Access</option>
                         </select>
                     </div>
 
@@ -154,87 +156,252 @@
                     <input type="hidden" id="scan-type" name="scan_mode" value="full">
 
                     <div class="form-group">
-                        <label>Entity Types</label>
+                        <label><i class="fas fa-list"></i> Entity Types</label>
                         <div class="checkboxes" id="entity-types-container">
-                            <!-- Will be populated dynamically -->
+                            <p style="color: #666;">Please select an EMoney service to see available entity types.</p>
                         </div>
                     </div>
 
-                    <!-- New Entity-Specific Filters Container -->
+                    <!-- Entity-Specific Filters Container -->
                     <div id="entity-specific-filters" style="display: none;">
                         <!-- This will be populated dynamically based on selected entity types -->
                     </div>
 
                     <div class="form-group">
-                        <label for="organization-id">Organization ID</label>
-                        <input type="text" id="organization-id" name="organizationId" placeholder="org-12345" required>
+                        <label for="organization-id"><i class="fas fa-building"></i> Organization ID</label>
+                        <input type="text" id="organization-id" name="organizationId" placeholder="org-12345"
+                            value="org-12345">
+                        <small class="form-help">EMoney organization identifier</small>
                     </div>
 
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="include-archived" name="includeArchived">
-                            Include Archived Records
-                        </label>
-                    </div>
+                    <!-- EMoney Authentication Section -->
+                    <div class="auth-section">
+                        <h3><i class="fas fa-shield-alt"></i> EMoney JWT Authentication</h3>
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="api-key"><i class="fas fa-key"></i> API Key</label>
+                                <input type="password" id="api-key" name="api_key" placeholder="emoney-api-key-67890"
+                                    value="emoney-api-key-67890">
+                                <small class="form-help">EMoney API key for authentication</small>
+                            </div>
 
-                    <div class="form-group">
-                        <label for="filter-properties">Filter Properties (comma-separated)</label>
-                        <input type="text" id="filter-properties" name="properties" placeholder="property1, property2">
-                        <small class="form-help">Optional: Specify specific properties to extract</small>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group flex-1">
-                            <label for="client-id">Client ID</label>
-                            <input type="text" id="client-id" name="client_id" placeholder="wealthbox-client-123456789">
+                            <div class="form-group flex-1">
+                                <label for="client-id"><i class="fas fa-id-card"></i> Client ID</label>
+                                <input type="text" id="client-id" name="client_id" placeholder="emoney-client-id-12345"
+                                    value="emoney-client-id-12345">
+                                <small class="form-help">EMoney client identifier</small>
+                            </div>
                         </div>
 
-                        <div class="form-group flex-1">
-                            <label for="client-secret">Client Secret</label>
-                            <input type="password" id="client-secret" name="client_secret"
-                                placeholder="Enter client secret">
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="firm-id"><i class="fas fa-building"></i> Firm ID</label>
+                                <input type="text" id="firm-id" name="firm_id" placeholder="firm-12345"
+                                    value="firm-12345">
+                                <small class="form-help">EMoney firm identifier</small>
+                            </div>
+
+                            <div class="form-group flex-1">
+                                <label for="scope"><i class="fas fa-lock"></i> Scope</label>
+                                <select id="scope" name="scope">
+                                    <option value="API" selected>API</option>
+                                    <option value="READ">READ</option>
+                                    <option value="WRITE">WRITE</option>
+                                </select>
+                                <small class="form-help">Access scope for EMoney API</small>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="jwt-token"><i class="fas fa-certificate"></i> JWT Token</label>
+                            <textarea id="jwt-token" name="jwt_token"
+                                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                rows="3">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</textarea>
+                            <small class="form-help">Valid JWT token for EMoney API authentication</small>
                         </div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group flex-1 auth-fields">
-                            <label for="grant-type">Grant Type</label>
-                            <select id="grant-type" name="grant_type">
-                                <option value="client_credentials" selected>Client Credentials</option>
-                                <option value="authorization_code">Authorization Code</option>
-                            </select>
+                    <!-- EMoney Filters Section -->
+                    <div class="filters-section">
+                        <h3><i class="fas fa-filter"></i> EMoney Scan Filters</h3>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="include-inactive" name="includeInactive">
+                                <i class="fas fa-eye-slash"></i> Include Inactive Records
+                            </label>
+                            <small class="form-help">Include inactive/disabled records in EMoney scan</small>
                         </div>
 
-                        <div class="form-group flex-1 auth-fields">
-                            <label for="scope">Scope</label>
-                            <input type="text" id="scope" name="scope" value="read" placeholder="read write">
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="batch-size"><i class="fas fa-layer-group"></i> Batch Size</label>
+                                <input type="number" id="batch-size" name="batchSize" value="100" min="1" max="1000">
+                                <small class="form-help">Records per batch (1-1000)</small>
+                            </div>
+
+                            <div class="form-group flex-1">
+                                <label for="filter-properties"><i class="fas fa-tags"></i> Filter Properties</label>
+                                <input type="text" id="filter-properties" name="properties"
+                                    placeholder="property1, property2">
+                                <small class="form-help">Specific properties to extract (optional)</small>
+                            </div>
                         </div>
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary cancel-btn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Start Scan</button>
+                        <button type="button" class="btn btn-secondary cancel-btn">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-rocket"></i> Start EMoney Scan
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
 
-        <!-- Scan Details Modal -->
+        <!-- EMoney Scan Details Modal -->
         <div id="scan-details-modal" class="modal">
-            <div class="modal-content">
+            <div class="modal-content emoney-modal">
                 <div class="modal-header">
-                    <h2>Scan Details</h2>
+                    <h2><i class="fas fa-coins"></i> EMoney Scan Details</h2>
                     <span class="close"><i class="fas fa-times"></i></span>
                 </div>
                 <div class="modal-body" id="scan-details-content">
                     <div class="loading-spinner">
                         <div class="loader"></div>
-                        <p>Loading scan details...</p>
+                        <p>Loading EMoney scan details...</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <style>
+        /* EMoney-specific styling */
+        .logo i.fa-coins {
+            color: #f39c12;
+        }
+
+        .emoney-modal .modal-header {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            color: white;
+        }
+
+        .emoney-modal .modal-header h2 i {
+            margin-right: 8px;
+        }
+
+        .auth-section,
+        .filters-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #f39c12;
+        }
+
+        .auth-section h3,
+        .filters-section h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group label i {
+            margin-right: 6px;
+            color: #7f8c8d;
+            width: 16px;
+        }
+
+        .form-help {
+            color: #7f8c8d;
+            font-size: 0.85rem;
+            margin-top: 4px;
+            display: block;
+        }
+
+        .service-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .service-badge.emoney-account {
+            background-color: rgba(52, 152, 219, 0.15);
+            color: #2980b9;
+            border: 1px solid rgba(52, 152, 219, 0.3);
+        }
+
+        .service-badge.emoney-client {
+            background-color: rgba(46, 204, 113, 0.15);
+            color: #27ae60;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+        }
+
+        .service-badge.emoney-financial_planning {
+            background-color: rgba(155, 89, 182, 0.15);
+            color: #8e44ad;
+            border: 1px solid rgba(155, 89, 182, 0.3);
+        }
+
+        .service-badge.emoney-identity {
+            background-color: rgba(230, 126, 34, 0.15);
+            color: #d35400;
+            border: 1px solid rgba(230, 126, 34, 0.3);
+        }
+
+        .checkboxes .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .checkboxes .checkbox-item:hover {
+            background-color: rgba(243, 156, 18, 0.1);
+        }
+
+        .checkboxes .checkbox-item input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .checkboxes .checkbox-item label {
+            margin: 0;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        #jwt-token {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+
+        .sidebar-nav ul li a i.fa-shield-alt {
+            color: #f39c12;
+        }
+
+        /* Enhanced button styling */
+        .btn-primary {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+        }
+    </style>
 
     <script src="/static/js/scans.js"></script>
 </body>

@@ -1,7 +1,6 @@
 import logging
 import time
 from typing import Dict, Any, Iterator, Optional
-import json
 from datetime import datetime, timezone
 from config import get_config
 
@@ -18,8 +17,17 @@ def extract_offices(
     """
     Extract Office records from eMoney Identity API
 
-    Yields office records with normalized field names,
+    Yields office records with lowercase underscore field names for PostgreSQL,
     with extraction metadata added.
+
+    Args:
+        api_service: API service client instance
+        extraction_metadata: Metadata to attach to all records
+        checkpoint_callback: Function to call for saving extraction progress
+        filters: Extraction filters and configuration
+        resume_from: Resume state from previous extraction checkpoint
+        check_cancelled_callback: Function to check if job was cancelled
+        check_paused_callback: Function to check if job was paused
     """
     logger = logging.getLogger(__name__)
 
@@ -32,6 +40,7 @@ def extract_offices(
     OFFICE_CANCEL_CHECK_FREQUENCY = config.OFFICE_CANCEL_CHECK_FREQUENCY
     OFFICE_MAX_BATCHES = config.OFFICE_MAX_BATCHES
     
+    # Check if we're in test mode and get test delay settings
     test_mode = getattr(config, 'TESTING', False)
     test_batch_delay = getattr(config, 'TEST_BATCH_DELAY_SECONDS', 5)
     test_record_delay = getattr(config, 'TEST_RECORD_DELAY_SECONDS', 0.1)
@@ -49,6 +58,7 @@ def extract_offices(
     entity = "office"
     batch_counter = 0
 
+    # Check if resuming from a previous state
     if resume_from and isinstance(resume_from, dict):
         entity_checkpoint = resume_from.get(entity)
         if entity_checkpoint:
@@ -121,8 +131,9 @@ def extract_offices(
         try:
             logger.info(f"Fetching offices (page: {page}, limit: {limit}) - batch {batch_counter}/{OFFICE_MAX_BATCHES}...")
 
-            response = api_service.get_offices(page=page, limit=limit)
+            response = api_service.get_offices(page=page, page_size=limit)
 
+            # Handle different response formats
             if isinstance(response, dict):
                 if "offices" in response:
                     offices = response.get("offices", [])
@@ -160,23 +171,27 @@ def extract_offices(
                         return
                     
                 try:
-                    # Handle eMoney Office format (flat JSON structure)
+                    # Use lowercase field names to match PostgreSQL schema
+                    office_id = office.get("OfficeID") or office.get("id")
+                    if not office_id:
+                        logger.warning(f"Skipping office record without OfficeID: {office}")
+                        continue
+                    
+                    # Create record with lowercase underscore field names for PostgreSQL
                     office_record = {
-                        "id": office.get("OfficeID") or office.get("officeId") or office.get("id"),
-                        "name": office.get("OfficeName") or office.get("officeName") or office.get("name"),
-                        "code": office.get("OfficeCode") or office.get("officeCode") or office.get("code"),
-                        "parent_office_id": office.get("ParentOfficeID") or office.get("parentOfficeId"),
-                        "office_path": office.get("OfficePath") or office.get("officePath"),
-                        "status": office.get("Status") or office.get("status"),
-                        "address": office.get("Address") or office.get("address"),
-                        "city": office.get("City") or office.get("city"),
-                        "state": office.get("State") or office.get("state"),
-                        "zip_code": office.get("ZipCode") or office.get("zipCode"),
-                        "country": office.get("Country") or office.get("country"),
-                        "phone": office.get("Phone") or office.get("phone"),
-                        "email": office.get("Email") or office.get("email"),
-                        "created_date": office.get("CreatedDate") or office.get("createdDate"),
-                        "modified_date": office.get("ModifiedDate") or office.get("modifiedDate"),
+                        "office_id": office_id,
+                        "office_name": office.get("OfficeName"),
+                        "office_code": office.get("OfficeCode"),
+                        "address_line1": office.get("AddressLine1"),
+                        "address_line2": office.get("AddressLine2"),
+                        "city": office.get("City"),
+                        "state": office.get("State"),
+                        "postal_code": office.get("PostalCode"),
+                        "country": office.get("Country"),
+                        "phone": office.get("Phone"),
+                        "is_active": office.get("IsActive"),
+                        "created_date": office.get("CreatedDate"),
+                        "modified_date": office.get("ModifiedDate"),
                     }
 
                     # Add extraction metadata

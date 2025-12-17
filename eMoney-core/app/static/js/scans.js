@@ -11,19 +11,19 @@ document.addEventListener('DOMContentLoaded', function () {
         paused: 0
     };
 
-    // Entity types for each scan type (Wealthbox specific)
-    // FIXED: Updated activity types to match backend services
+    // Entity types for each EMoney scan type
     const entityTypesByService = {
-        client: ["contact", "client", "household", "applicant", "relationship"],
-        opportunity: ["opportunity", "deal", "pipeline", "stage", "campaign"],
-        identity: ["user", "user_profile", "workspace", "role", "permission"],
-        activity: ["task", "event", "note", "project", "workflow"],
-        auth: ["oauth", "token", "credential", "provider"]
+        account: ["account", "accounttype", "asset", "assetclass", "liability"],
+        client: ["client", "contact", "household", "relationship", "spouse"],
+        financial_planning: ["plan", "goal", "net_worth", "scenario", "cashflow"],
+        identity: ["user", "office", "role", "permission", "sharingrule", "logon"]
     };
 
-    // Map entity types to required IDs (Wealthbox specific)
+    // Map entity types to required IDs (EMoney specific - could be extended later)
     const entityRequiredFilters = {
-
+        // Examples of EMoney-specific filters if needed:
+        // plan: { field: "client_ids", label: "Client IDs", help: "Comma-separated list of client IDs" },
+        // scenario: { field: "plan_ids", label: "Plan IDs", help: "Comma-separated list of plan IDs" }
     };
 
     // DOM elements
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function initializePage() {
         // Debug: Check if all required elements exist
-        console.log('Checking required DOM elements...');
+        console.log('Initializing EMoney scan interface...');
         console.log('scanTypeSelect:', scanTypeSelect);
         console.log('entityTypesContainer:', entityTypesContainer);
 
@@ -121,19 +121,19 @@ document.addEventListener('DOMContentLoaded', function () {
         const scanType = scanTypeSelect.value;
         const entityTypes = entityTypesByService[scanType] || [];
 
-        console.log('Scan type selected:', scanType);
-        console.log('Entity types found:', entityTypes);
+        console.log('EMoney scan type selected:', scanType);
+        console.log('EMoney entity types found:', entityTypes);
         console.log('Entity container:', entityTypesContainer);
 
         // Clear existing checkboxes
         entityTypesContainer.innerHTML = '';
 
         if (entityTypes.length === 0) {
-            entityTypesContainer.innerHTML = '<p style="color: #666;">Please select a scan type to see available entity types.</p>';
+            entityTypesContainer.innerHTML = '<p style="color: #666;">Please select an EMoney scan type to see available entity types.</p>';
             return;
         }
 
-        // Add checkboxes for each entity type
+        // Add checkboxes for each EMoney entity type
         entityTypes.forEach(type => {
             const checkboxItem = document.createElement('div');
             checkboxItem.className = 'checkbox-item';
@@ -144,15 +144,15 @@ document.addEventListener('DOMContentLoaded', function () {
             checkbox.name = 'entity_types';
             checkbox.value = type;
 
-            // FIXED: Updated default selections to match actual entity types
-            if (scanType === 'client') {
-                checkbox.checked = type === 'contact' || type === 'client';
-            } else if (scanType === 'opportunity') {
-                checkbox.checked = type === 'opportunity' || type === 'deal';
-            } else if (scanType === 'activity') {
-                checkbox.checked = type === 'task' || type === 'event' || type === 'note';
+            // Set default selections for EMoney services
+            if (scanType === 'account') {
+                checkbox.checked = type === 'account' || type === 'asset';
+            } else if (scanType === 'client') {
+                checkbox.checked = type === 'client' || type === 'contact';
+            } else if (scanType === 'financial_planning') {
+                checkbox.checked = type === 'plan' || type === 'goal';
             } else if (scanType === 'identity') {
-                checkbox.checked = type === 'user';
+                checkbox.checked = type === 'user' || type === 'permission';
             } else {
                 checkbox.checked = entityTypes.indexOf(type) === 0;
             }
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <tr>
                 <td colspan="8" class="loading">
                     <div class="loader"></div>
-                    <span>Loading scans...</span>
+                    <span>Loading EMoney scans...</span>
                 </td>
             </tr>
         `;
@@ -314,18 +314,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     <tr>
                         <td colspan="8" class="loading">
                             <i class="fas fa-info-circle"></i>
-                            <span>No scans found</span>
+                            <span>No EMoney scans found</span>
                         </td>
                     </tr>
                 `;
             }
         } catch (error) {
-            console.error('Error loading scans:', error);
+            console.error('Error loading EMoney scans:', error);
             scanTableBody.innerHTML = `
                 <tr>
                     <td colspan="8" class="loading">
                         <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
-                        <span>Error loading scans: ${error.message}</span>
+                        <span>Error loading EMoney scans: ${error.message}</span>
                     </td>
                 </tr>
             `;
@@ -353,6 +353,9 @@ document.addEventListener('DOMContentLoaded', function () {
             // Format entity types
             const entityTypes = scan.entity_types.join(', ');
 
+            // Add EMoney service label for clarity
+            const serviceLabel = getEMoneyServiceLabel(scan.scan_type);
+
             // Create the row content
             row.innerHTML = `
                 <td>
@@ -360,7 +363,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         ${scan.id.slice(0, 8)}...
                     </a>
                 </td>
-                <td>${scan.scan_type}</td>
+                <td>
+                    <span class="service-badge emoney-${scan.scan_type}">${serviceLabel}</span>
+                </td>
                 <td><span class="status ${scan.status.toLowerCase()}">${scan.status}</span></td>
                 <td>${entityTypes}</td>
                 <td>${scan.organization_id || 'N/A'}</td>
@@ -432,6 +437,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function getEMoneyServiceLabel(scanType) {
+        const labels = {
+            'account': 'Account',
+            'client': 'Client',
+            'financial_planning': 'Planning',
+            'identity': 'Identity'
+        };
+        return labels[scanType] || scanType;
+    }
+
     function formatDuration(ms) {
         const seconds = Math.floor(ms / 1000);
         const minutes = Math.floor(seconds / 60);
@@ -472,16 +487,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const organizationId = document.getElementById('organization-id').value;
-        const includeArchived = document.getElementById('include-archived').checked;
+        const includeInactive = document.getElementById('include-inactive').checked;
+        const batchSize = parseInt(document.getElementById('batch-size').value) || 100;
         const filterProperties = document.getElementById('filter-properties').value;
+        
+        // Get EMoney JWT authentication fields
+        const apiKey = document.getElementById('api-key').value;
         const clientId = document.getElementById('client-id').value;
-        const clientSecret = document.getElementById('client-secret').value;
-        const grantType = document.getElementById('grant-type').value;
-        const scope = document.getElementById('scope').value;
+        const firmId = document.getElementById('firm-id').value;
+        const jwtToken = document.getElementById('jwt-token').value;
+        const scope = document.getElementById('scope').value || 'API';
 
-        // Get entity-specific filters
+        // Get EMoney filters
         const filters = {
-            includeArchived: includeArchived
+            includeInactive: includeInactive,
+            batchSize: batchSize
         };
 
         // Add filter properties if specified
@@ -501,15 +521,16 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Construct request body with OAuth credentials
+        // Construct request body with EMoney JWT credentials
         const requestBody = {
             scan_type: scanType,
             entity_types: entityTypes,
             organizationId: organizationId,
             auth: {
+                api_key: apiKey,
                 client_id: clientId,
-                client_secret: clientSecret,
-                grant_type: grantType,
+                firm_id: firmId,
+                jwt_token: jwtToken,
                 scope: scope
             },
             filters: filters
@@ -519,7 +540,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Show loading state
             const submitBtn = scanForm.querySelector('button[type="submit"]');
             const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting EMoney Scan...';
             submitBtn.disabled = true;
 
             const response = await fetch('/api/v1/scans/start', {
@@ -531,21 +552,22 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
-            console.log('Scan started:', data);
+            console.log('EMoney scan started:', data);
 
             closeNewScanModal();
             loadScans();
 
             // Show success notification
-            showNotification('Scan started successfully', 'success');
+            showNotification(`EMoney ${getEMoneyServiceLabel(scanType)} scan started successfully`, 'success');
 
         } catch (error) {
-            console.error('Error starting scan:', error);
-            showNotification(`Error starting scan: ${error.message}`, 'error');
+            console.error('Error starting EMoney scan:', error);
+            showNotification(`Error starting EMoney scan: ${error.message}`, 'error');
         } finally {
             // Reset button state
             const submitBtn = scanForm.querySelector('button[type="submit"]');
@@ -555,7 +577,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function cancelScan(scanId) {
-        if (!confirm(`Are you sure you want to cancel scan ${scanId}?`)) {
+        if (!confirm(`Are you sure you want to cancel EMoney scan ${scanId}?`)) {
             return;
         }
 
@@ -569,19 +591,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const data = await response.json();
-            console.log('Scan cancelled:', data);
+            console.log('EMoney scan cancelled:', data);
 
             loadScans();
-            showNotification('Scan cancelled successfully', 'success');
+            showNotification('EMoney scan cancelled successfully', 'success');
 
         } catch (error) {
-            console.error('Error cancelling scan:', error);
-            showNotification(`Error cancelling scan: ${error.message}`, 'error');
+            console.error('Error cancelling EMoney scan:', error);
+            showNotification(`Error cancelling EMoney scan: ${error.message}`, 'error');
         }
     }
 
     async function pauseScan(scanId) {
-        if (!confirm(`Are you sure you want to pause scan ${scanId}?`)) {
+        if (!confirm(`Are you sure you want to pause EMoney scan ${scanId}?`)) {
             return;
         }
 
@@ -595,19 +617,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const data = await response.json();
-            console.log('Scan paused:', data);
+            console.log('EMoney scan paused:', data);
 
             loadScans();
-            showNotification('Scan paused successfully', 'success');
+            showNotification('EMoney scan paused successfully', 'success');
 
         } catch (error) {
-            console.error('Error pausing scan:', error);
-            showNotification(`Error pausing scan: ${error.message}`, 'error');
+            console.error('Error pausing EMoney scan:', error);
+            showNotification(`Error pausing EMoney scan: ${error.message}`, 'error');
         }
     }
 
     async function resumeScan(scanId) {
-        if (!confirm(`Are you sure you want to resume scan ${scanId}?`)) {
+        if (!confirm(`Are you sure you want to resume EMoney scan ${scanId}?`)) {
             return;
         }
 
@@ -621,19 +643,19 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const data = await response.json();
-            console.log('Scan resumed:', data);
+            console.log('EMoney scan resumed:', data);
 
             loadScans();
-            showNotification('Scan resumed successfully', 'success');
+            showNotification('EMoney scan resumed successfully', 'success');
 
         } catch (error) {
-            console.error('Error resuming scan:', error);
-            showNotification(`Error resuming scan: ${error.message}`, 'error');
+            console.error('Error resuming EMoney scan:', error);
+            showNotification(`Error resuming EMoney scan: ${error.message}`, 'error');
         }
     }
 
     async function removeScan(scanId) {
-        if (!confirm(`Are you sure you want to remove scan ${scanId} and all its data? This action cannot be undone.`)) {
+        if (!confirm(`Are you sure you want to remove EMoney scan ${scanId} and all its data? This action cannot be undone.`)) {
             return;
         }
 
@@ -647,14 +669,14 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const data = await response.json();
-            console.log('Scan removed:', data);
+            console.log('EMoney scan removed:', data);
 
             loadScans();
-            showNotification('Scan removed successfully', 'success');
+            showNotification('EMoney scan removed successfully', 'success');
 
         } catch (error) {
-            console.error('Error removing scan:', error);
-            showNotification(`Error removing scan: ${error.message}`, 'error');
+            console.error('Error removing EMoney scan:', error);
+            showNotification(`Error removing EMoney scan: ${error.message}`, 'error');
         }
     }
 
@@ -714,6 +736,33 @@ document.addEventListener('DOMContentLoaded', function () {
                     color: var(--text-primary);
                     font-weight: 600;
                 }
+                .service-badge {
+                    padding: 2px 8px;
+                    border-radius: 4px;
+                    font-size: 0.85rem;
+                    font-weight: 500;
+                    text-transform: uppercase;
+                }
+                .service-badge.emoney-account {
+                    background-color: rgba(52, 152, 219, 0.15);
+                    color: #2980b9;
+                    border: 1px solid rgba(52, 152, 219, 0.3);
+                }
+                .service-badge.emoney-client {
+                    background-color: rgba(46, 204, 113, 0.15);
+                    color: #27ae60;
+                    border: 1px solid rgba(46, 204, 113, 0.3);
+                }
+                .service-badge.emoney-financial_planning {
+                    background-color: rgba(155, 89, 182, 0.15);
+                    color: #8e44ad;
+                    border: 1px solid rgba(155, 89, 182, 0.3);
+                }
+                .service-badge.emoney-identity {
+                    background-color: rgba(230, 126, 34, 0.15);
+                    color: #d35400;
+                    border: 1px solid rgba(230, 126, 34, 0.3);
+                }
                 @keyframes slideIn {
                     from { transform: translateX(100%); opacity: 0; }
                     to { transform: translateX(0); opacity: 1; }
@@ -770,7 +819,7 @@ async function showScanDetails(scanId) {
     modalContent.innerHTML = `
         <div class="loading-spinner">
             <div class="loader"></div>
-            <p>Loading scan details...</p>
+            <p>Loading EMoney scan details...</p>
         </div>
     `;
 
@@ -789,7 +838,7 @@ async function showScanDetails(scanId) {
     });
 
     try {
-        // Fetch scan details
+        // Fetch EMoney scan details
         const response = await fetch(`/api/v1/scans/${scanId}/status`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -827,7 +876,7 @@ async function showScanDetails(scanId) {
         if (Object.keys(appliedFilters).length > 0) {
             filtersHtml = `
                 <div class="scan-details-section">
-                    <h3>Applied Filters</h3>
+                    <h3>EMoney Applied Filters</h3>
                     <div class="scan-info">
             `;
 
@@ -841,8 +890,28 @@ async function showScanDetails(scanId) {
                 `;
             }
 
+            // EMoney batch size
+            if (appliedFilters.batchSize) {
+                filtersHtml += `
+                    <div class="info-item">
+                        <label>Batch Size:</label>
+                        <span>${appliedFilters.batchSize}</span>
+                    </div>
+                `;
+            }
+
+            // Include inactive flag
+            if (appliedFilters.includeInactive !== undefined) {
+                filtersHtml += `
+                    <div class="info-item">
+                        <label>Include Inactive:</label>
+                        <span>${appliedFilters.includeInactive ? 'Yes' : 'No'}</span>
+                    </div>
+                `;
+            }
+
             // Entity specific filters
-            const knownFilters = ['dateRange'];
+            const knownFilters = ['dateRange', 'batchSize', 'includeInactive'];
             Object.entries(appliedFilters).forEach(([key, value]) => {
                 if (!knownFilters.includes(key)) {
                     let displayValue;
@@ -869,18 +938,29 @@ async function showScanDetails(scanId) {
             `;
         }
 
-        // Render scan details
+        // Get service label
+        function getEMoneyServiceLabel(scanType) {
+            const labels = {
+                'account': 'Account & Assets',
+                'client': 'Client Management',
+                'financial_planning': 'Financial Planning',
+                'identity': 'Identity & Access'
+            };
+            return labels[scanType] || scanType;
+        }
+
+        // Render EMoney scan details
         modalContent.innerHTML = `
             <div class="scan-details-section">
-                <h3>Scan Information</h3>
+                <h3>EMoney Scan Information</h3>
                 <div class="scan-info">
                     <div class="info-item">
                         <label>ID:</label>
                         <span>${scanData.id}</span>
                     </div>
                     <div class="info-item">
-                        <label>Type:</label>
-                        <span>${scanData.scan_type}</span>
+                        <label>Service:</label>
+                        <span><span class="service-badge emoney-${scanData.scan_type}">${getEMoneyServiceLabel(scanData.scan_type)}</span></span>
                     </div>
                     <div class="info-item">
                         <label>Status:</label>
@@ -920,7 +1000,7 @@ async function showScanDetails(scanId) {
             ${filtersHtml}
             
             <div class="scan-details-section">
-                <h3>Entity Results</h3>
+                <h3>EMoney Entity Results</h3>
                 <table class="entity-results-table">
                     <thead>
                         <tr>
@@ -982,26 +1062,26 @@ async function showScanDetails(scanId) {
             </div>
             
             <div class="scan-details-section">
-                <h3>Actions</h3>
+                <h3>EMoney Actions</h3>
                 <div class="action-buttons">
                     ${scanData.status === 'RUNNING' ? `
                         <button class="btn btn-primary pause-detail-scan-btn" data-id="${scanData.id}">
-                            <i class="fas fa-pause"></i> Pause Scan
+                            <i class="fas fa-pause"></i> Pause EMoney Scan
                         </button>
                         <button class="btn btn-danger cancel-detail-scan-btn" data-id="${scanData.id}">
-                            <i class="fas fa-stop"></i> Cancel Scan
+                            <i class="fas fa-stop"></i> Cancel EMoney Scan
                         </button>
                     ` : ''}
                     ${scanData.status === 'PAUSED' ? `
                         <button class="btn btn-primary resume-detail-scan-btn" data-id="${scanData.id}">
-                            <i class="fas fa-play"></i> Resume Scan
+                            <i class="fas fa-play"></i> Resume EMoney Scan
                         </button>
                         <button class="btn btn-danger cancel-detail-scan-btn" data-id="${scanData.id}">
-                            <i class="fas fa-stop"></i> Cancel Scan
+                            <i class="fas fa-stop"></i> Cancel EMoney Scan
                         </button>
                     ` : ''}
                     <button class="btn btn-danger remove-detail-scan-btn" data-id="${scanData.id}">
-                        <i class="fas fa-trash"></i> Remove Scan
+                        <i class="fas fa-trash"></i> Remove EMoney Scan
                     </button>
                     <button class="btn btn-secondary close-details-btn">Close</button>
                 </div>
@@ -1059,11 +1139,11 @@ async function showScanDetails(scanId) {
         }
 
     } catch (error) {
-        console.error('Error fetching scan details:', error);
+        console.error('Error fetching EMoney scan details:', error);
         modalContent.innerHTML = `
             <div class="error-message">
                 <i class="fas fa-exclamation-circle"></i>
-                <p>Error loading scan details: ${error.message}</p>
+                <p>Error loading EMoney scan details: ${error.message}</p>
                 <button class="btn btn-secondary close-details-btn">Close</button>
             </div>
         `;

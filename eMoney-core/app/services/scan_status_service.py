@@ -9,7 +9,7 @@ from app.db.models import ScanStatus, ScanEntityResult
 logger = logging.getLogger(__name__)
 
 class ScanStatusService:
-    """Service for polling and updating scan statuses"""
+    """Service for polling and updating EMoney scan statuses"""
     
     def __init__(self, scan_repository: ScanRepository):
         self.scan_repository = scan_repository
@@ -18,48 +18,46 @@ class ScanStatusService:
         self.active_polls = {}  # Track active polling tasks by entity result ID
     
     def _init_connectors(self):
-        """Initialize connectors for different service types"""
-        from app.connectors.client_connector import WealthboxClientConnector
-        from app.connectors.opportunity_connector import WealthboxOpportunityConnector
-        from app.connectors.identity_connector import WealthboxIdentityConnector
-        from app.connectors.activity_connector import WealthboxActivityConnector
-        from app.connectors.auth_connector import WealthboxAuthConnector
+        """Initialize connectors for different EMoney service types"""
+        from app.connectors.emoney_account_connector import EMoneyAccountConnector
+        from app.connectors.emoney_client_connector import EMoneyClientConnector
+        from app.connectors.emoney_financial_planning_connector import EMoneyFinancialPlanningConnector
+        from app.connectors.emoney_identity_connector import EMoneyIdentityConnector
         
-        # Initialize all connectors
+        # Initialize all EMoney connectors
         self.connectors = {
-            "client": WealthboxClientConnector(),
-            "opportunity": WealthboxOpportunityConnector(),
-            "identity": WealthboxIdentityConnector(),
-            "activity": WealthboxActivityConnector(),
-            "auth": WealthboxAuthConnector()
+            "account": EMoneyAccountConnector(),
+            "client": EMoneyClientConnector(),
+            "financial_planning": EMoneyFinancialPlanningConnector(),
+            "identity": EMoneyIdentityConnector()
         }
     
     def _get_connector(self, scan_type: str):
-        """Get the appropriate connector for the scan type"""
+        """Get the appropriate connector for the EMoney scan type"""
         connector = self.connectors.get(scan_type)
         if not connector:
-            raise ValueError(f"No connector available for scan type: {scan_type}")
+            raise ValueError(f"No connector available for EMoney scan type: {scan_type}")
         return connector
     
     async def start_entity_polling(self, entity_result: ScanEntityResult, scan_type: str, max_duration: int = 3600):
         """
-        Start polling for an individual entity result status
+        Start polling for an individual EMoney entity result status
         
         Args:
             entity_result: ScanEntityResult to poll
-            scan_type: Type of scan (client, opportunity, identity, activity, auth)
+            scan_type: Type of EMoney scan (account, client, financial_planning, identity)
             max_duration: Maximum polling duration in seconds (default: 1 hour)
         """
         entity_id = entity_result.id
         
         if entity_id in self.active_polls:
-            logger.info(f"Polling already active for entity {entity_id}")
+            logger.info(f"Polling already active for EMoney entity {entity_id}")
             return
             
         try:
             connector = self._get_connector(scan_type)
         except ValueError as e:
-            logger.error(f"Cannot poll entity {entity_id}: {str(e)}")
+            logger.error(f"Cannot poll EMoney entity {entity_id}: {str(e)}")
             return
             
         # Create polling task
@@ -76,18 +74,18 @@ class ScanStatusService:
         # Setup cleanup when done
         task.add_done_callback(lambda t: self._cleanup_polling_task(entity_id, t))
         
-        logger.info(f"Started polling for entity {entity_id}")
+        logger.info(f"Started polling for EMoney entity {entity_id}")
     
     def stop_entity_polling(self, entity_id: str):
         """
-        Stop polling for a specific entity result
+        Stop polling for a specific EMoney entity result
         
         Args:
             entity_id: ID of the entity result to stop polling
         """
         if entity_id in self.active_polls:
             self.active_polls[entity_id].cancel()
-            logger.info(f"Stopped polling for entity {entity_id}")
+            logger.info(f"Stopped polling for EMoney entity {entity_id}")
     
     def _cleanup_polling_task(self, entity_id: str, task):
         """Remove task from active polls when complete"""
@@ -96,17 +94,17 @@ class ScanStatusService:
         
         # Handle any exceptions
         if task.cancelled():
-            logger.info(f"Polling for entity {entity_id} was cancelled")
+            logger.info(f"Polling for EMoney entity {entity_id} was cancelled")
         elif task.exception():
-            logger.error(f"Error polling entity {entity_id}: {task.exception()}")
+            logger.error(f"Error polling EMoney entity {entity_id}: {task.exception()}")
     
     async def _poll_entity_status(self, entity_result: ScanEntityResult, connector: Any, max_duration: int):
         """
-        Poll for entity status updates until complete or max duration reached
+        Poll for EMoney entity status updates until complete or max duration reached
         
         Args:
             entity_result: ScanEntityResult to poll
-            connector: Service connector to use for API calls
+            connector: EMoney service connector to use for API calls
             max_duration: Maximum polling duration in seconds
         """
         from app.db.database import AsyncSessionFactory  # Import at function level
@@ -121,9 +119,9 @@ class ScanStatusService:
         # Continue polling until status is final or timeout reached
         while entity_result.status not in ["completed", "failed", "cancelled"] and datetime.utcnow() < end_time:
             try:
-                # Poll status from the API using the entity result's ID
+                # Poll status from the EMoney API using the entity result's ID
                 status_response = await connector.get_scan_status(entity_id)
-                logger.debug(f"Status response for entity {entity_id}: {status_response}")
+                logger.debug(f"EMoney status response for entity {entity_id}: {status_response}")
                 
                 # Process response
                 if "data" in status_response and status_response["data"] is not None:
@@ -132,13 +130,13 @@ class ScanStatusService:
                     if "status" in api_data:
                         api_status = api_data["status"]
                         
-                        # Map API status to our status
+                        # Map EMoney API status to our status
                         new_entity_status = api_status
                         
                         # Update entity result
                         update_data = {"status": new_entity_status}
                         
-                        # Extract records processed from checkpoint data if available
+                        # Extract records processed from EMoney checkpoint data if available
                         if "checkpointInfo" in api_data and api_data["checkpointInfo"] is not None:
                             checkpoint_info = api_data["checkpointInfo"]
                             if "latestCheckpoint" in checkpoint_info and checkpoint_info["latestCheckpoint"] is not None:
@@ -146,13 +144,23 @@ class ScanStatusService:
                                 if "recordsProcessed" in latest_checkpoint:
                                     records_processed = latest_checkpoint["recordsProcessed"]
                                     update_data["record_count"] = records_processed
-                                    logger.info(f"Found {records_processed} records processed in checkpoint for entity {entity_id}")
+                                    logger.info(f"Found {records_processed} EMoney records processed in checkpoint for entity {entity_id}")
                         
-                        # If no checkpoint data, use recordsExtracted from api_data
+                        # If no checkpoint data, use recordsExtracted from EMoney api_data
                         if "record_count" not in update_data and "recordsExtracted" in api_data:
                             update_data["record_count"] = api_data["recordsExtracted"]
-                            
-                        # Calculate success/error counts if available
+                        
+                        # Extract EMoney-specific batch processing info
+                        if "batchInfo" in api_data and api_data["batchInfo"] is not None:
+                            batch_info = api_data["batchInfo"]
+                            if "totalRecords" in batch_info:
+                                update_data["record_count"] = batch_info["totalRecords"]
+                            if "processedCount" in batch_info:
+                                update_data["success_count"] = batch_info["processedCount"]
+                            if "errorCount" in batch_info:
+                                update_data["error_count"] = batch_info["errorCount"]
+                                
+                        # Calculate success/error counts if available from EMoney metadata
                         if "metadata" in api_data and api_data["metadata"] is not None:
                             metadata = api_data["metadata"]
                             if "extraction_summary" in metadata and metadata["extraction_summary"] is not None:
@@ -160,6 +168,14 @@ class ScanStatusService:
                                 update_data["success_count"] = summary.get("success_count", 0)
                                 update_data["error_count"] = summary.get("error_count", 0)
                                 update_data["warning_count"] = summary.get("warning_count", 0)
+                            
+                            # Handle EMoney-specific JWT authentication status
+                            if "auth_status" in metadata:
+                                auth_status = metadata["auth_status"]
+                                if auth_status.get("jwt_valid") is False:
+                                    logger.warning(f"JWT token invalid for EMoney entity {entity_id}")
+                                if auth_status.get("firm_access") is False:
+                                    logger.warning(f"Firm access denied for EMoney entity {entity_id}")
                         
                         # Set timestamps
                         if api_status in ["completed", "failed", "cancelled"]:
@@ -168,14 +184,14 @@ class ScanStatusService:
                             
                             if "endTime" in api_data and api_data["endTime"]:
                                 try:
-                                    # Parse the API end time, ensuring it's timezone-aware
+                                    # Parse the EMoney API end time, ensuring it's timezone-aware
                                     api_end_time = datetime.fromisoformat(
                                         api_data["endTime"].replace("Z", "+00:00")
                                     )
                                     # Store as UTC time without timezone info
                                     update_data["end_time"] = api_end_time.replace(tzinfo=None)
                                 except (ValueError, TypeError) as e:
-                                    logger.warning(f"Error parsing endTime for entity {entity_id}: {str(e)}")
+                                    logger.warning(f"Error parsing endTime for EMoney entity {entity_id}: {str(e)}")
                             
                             # Calculate processing time - ensure both times are timezone-naive
                             if entity_result.start_time and update_data.get("end_time"):
@@ -191,7 +207,7 @@ class ScanStatusService:
                                 
                                 update_data["processing_time"] = (end_time_naive - start_time_naive).total_seconds()
                                 
-                            # If duration is available directly, use it
+                            # If duration is available directly from EMoney, use it
                             if "duration" in api_data and api_data["duration"] is not None:
                                 update_data["processing_time"] = api_data["duration"]
                         
@@ -210,7 +226,7 @@ class ScanStatusService:
                             for key, value in update_data.items():
                                 setattr(entity_result, key, value)
                             
-                            logger.info(f"Updated status for entity {entity_id} to {new_entity_status}")
+                            logger.info(f"Updated status for EMoney entity {entity_id} to {new_entity_status}")
                             
                             # Update parent scan status with a separate query in the same session
                             entity_results = await repo.get_entity_results(scan_id)
@@ -239,29 +255,29 @@ class ScanStatusService:
                             # Update scan status if needed
                             if new_scan_status:
                                 await repo.update_status(scan_id, new_scan_status)
-                                logger.info(f"Updated scan {scan_id} status to {new_scan_status.value}")
+                                logger.info(f"Updated EMoney scan {scan_id} status to {new_scan_status.value}")
                         
                         # If status is final, break out of loop
                         if api_status in ["completed", "failed", "cancelled"]:
-                            logger.info(f"Entity {entity_id} reached final status: {api_status}")
+                            logger.info(f"EMoney entity {entity_id} reached final status: {api_status}")
                             break
                     else:
-                        logger.warning(f"Status field missing in API response for entity {entity_id}")
+                        logger.warning(f"Status field missing in EMoney API response for entity {entity_id}")
                 else:
-                    logger.warning(f"Invalid API response structure for entity {entity_id}")
+                    logger.warning(f"Invalid EMoney API response structure for entity {entity_id}")
                 
             except Exception as e:
-                logger.error(f"Error polling entity {entity_id}: {str(e)}", exc_info=True)
+                logger.error(f"Error polling EMoney entity {entity_id}: {str(e)}", exc_info=True)
             
             # Sleep before polling again
             await asyncio.sleep(self.polling_interval)
         
         # Log if we hit the timeout
         if datetime.utcnow() >= end_time and entity_result.status not in ["completed", "failed", "cancelled"]:
-            logger.warning(f"Polling timeout for entity {entity_id} after {max_duration} seconds")
+            logger.warning(f"Polling timeout for EMoney entity {entity_id} after {max_duration} seconds")
     
     async def _update_parent_scan_status(self, scan_id: str):
-        """Update parent scan status based on all its entity results"""
+        """Update parent EMoney scan status based on all its entity results"""
         # Get entity results
         entity_results = await self.scan_repository.get_entity_results(scan_id)
         
@@ -296,14 +312,14 @@ class ScanStatusService:
         # Update scan status if needed
         if new_scan_status:
             await self.scan_repository.update_status(scan_id, new_scan_status)
-            logger.info(f"Updated scan {scan_id} status to {new_scan_status.value}")
+            logger.info(f"Updated EMoney scan {scan_id} status to {new_scan_status.value}")
             
     async def stop_all_polling(self, scan_id: str):
         """
-        Stop polling for all entity results associated with a scan
+        Stop polling for all entity results associated with an EMoney scan
         
         Args:
-            scan_id: ID of the parent scan
+            scan_id: ID of the parent EMoney scan
         """
         # Get entity results for this scan
         entity_results = await self.scan_repository.get_entity_results(scan_id)
@@ -312,14 +328,14 @@ class ScanStatusService:
         for entity_result in entity_results:
             self.stop_entity_polling(entity_result.id)
             
-        logger.info(f"Stopped all polling for scan {scan_id}")
+        logger.info(f"Stopped all polling for EMoney scan {scan_id}")
     
     async def pause_all_polling(self, scan_id: str):
         """
-        Pause polling for all entity results associated with a scan
+        Pause polling for all entity results associated with an EMoney scan
         
         Args:
-            scan_id: ID of the parent scan
+            scan_id: ID of the parent EMoney scan
         """
         # Get entity results for this scan
         entity_results = await self.scan_repository.get_entity_results(scan_id)
@@ -329,14 +345,14 @@ class ScanStatusService:
             if entity_result.id in self.active_polls and entity_result.status == "processing":
                 self.stop_entity_polling(entity_result.id)
                 
-        logger.info(f"Paused all polling for scan {scan_id}")
+        logger.info(f"Paused all polling for EMoney scan {scan_id}")
     
     async def resume_all_polling(self, scan_id: str):
         """
-        Resume polling for all paused entity results associated with a scan
+        Resume polling for all paused entity results associated with an EMoney scan
         
         Args:
-            scan_id: ID of the parent scan
+            scan_id: ID of the parent EMoney scan
         """
         # Get entity results for this scan
         entity_results = await self.scan_repository.get_entity_results(scan_id)
@@ -344,7 +360,7 @@ class ScanStatusService:
         # Get scan type
         scan = await self.scan_repository.get_by_id(scan_id)
         if not scan:
-            logger.error(f"Cannot resume polling: Scan {scan_id} not found")
+            logger.error(f"Cannot resume polling: EMoney scan {scan_id} not found")
             return
             
         scan_type = scan.scan_type
@@ -354,4 +370,52 @@ class ScanStatusService:
             if entity_result.status == "processing" and entity_result.id not in self.active_polls:
                 await self.start_entity_polling(entity_result, scan_type)
                 
-        logger.info(f"Resumed all polling for scan {scan_id}")
+        logger.info(f"Resumed all polling for EMoney scan {scan_id}")
+    
+    async def get_polling_status(self) -> Dict[str, Any]:
+        """
+        Get current status of all active polling tasks for EMoney entities.
+        
+        Returns:
+            Dict[str, Any]: Polling status information
+        """
+        active_count = len(self.active_polls)
+        active_entities = list(self.active_polls.keys())
+        
+        return {
+            "active_polls_count": active_count,
+            "active_entity_ids": active_entities,
+            "polling_interval": self.polling_interval
+        }
+    
+    async def update_polling_interval(self, new_interval: int):
+        """
+        Update the polling interval for EMoney status checks.
+        
+        Args:
+            new_interval: New polling interval in seconds
+        """
+        if new_interval < 5:
+            logger.warning("Polling interval too short, setting minimum of 5 seconds")
+            new_interval = 5
+        elif new_interval > 300:
+            logger.warning("Polling interval too long, setting maximum of 300 seconds")
+            new_interval = 300
+            
+        old_interval = self.polling_interval
+        self.polling_interval = new_interval
+        
+        logger.info(f"Updated EMoney polling interval from {old_interval}s to {new_interval}s")
+    
+    async def handle_emoney_auth_refresh(self, entity_id: str, new_jwt_token: str):
+        """
+        Handle JWT token refresh for an EMoney entity during polling.
+        
+        Args:
+            entity_id: ID of the entity result
+            new_jwt_token: New JWT token to use
+        """
+        # This method would be called if JWT token expires during polling
+        # Implementation would depend on how JWT refresh is handled in the system
+        logger.info(f"JWT token refreshed for EMoney entity {entity_id}")
+        # Could update the connector's auth config or restart polling with new token

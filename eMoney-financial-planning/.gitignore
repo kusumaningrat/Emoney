@@ -1,0 +1,107 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+ENV/
+
+# Flask
+instance/
+.webassets-cache
+.flask_session/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# PostgreSQL
+*.dump
+*.pgpass
+*.sql
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+.ipynb_checkpoints
+
+# DLT specific
+.dlt/
+.dlt-env
+*.dlt.json
+dlt_run.py
+dlt_warehouse.db
+
+# Environment variables and secrets
+.env
+.env.*
+*.env
+.flaskenv
+credentials.json
+*.pem
+*.key
+*.crt
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+
+# Application specific
+config.local.py
+local_settings.py
+
+# Test artifacts
+coverage/
+.coverage.*
+.noseids
+nosetests.xml
+test-output.xml
+test-results/
+
+# Cache and generated files
+__pycache__/
+.cache/
+.pytest_cache/
+.mypy_cache/

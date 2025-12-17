@@ -271,6 +271,98 @@ def search_clients(
 # HOUSEHOLD ENDPOINTS
 # ============================================================================
 
+@router.get("/households")
+def get_households(
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(100, ge=1, le=500),
+    status: Optional[str] = Query(None),
+    riskTolerance: Optional[str] = Query(None),
+    minNetWorth: Optional[float] = Query(None),
+    maxNetWorth: Optional[float] = Query(None),
+    includeMembers: bool = Query(False),
+    db: Session = Depends(get_db)
+):
+    """List all households with pagination and filtering"""
+    try:
+        service = HouseholdService()
+        skip = (page - 1) * pageSize
+        
+        # Get households with filtering
+        households = service.get_all(
+            db, 
+            skip=skip, 
+            limit=pageSize,
+            status=status,
+            min_net_worth=minNetWorth
+        )
+        
+        # Apply additional filtering
+        if riskTolerance:
+            households = [h for h in households if h.RiskTolerance == riskTolerance]
+        
+        if maxNetWorth:
+            filtered_households = []
+            for household in households:
+                try:
+                    if household.NetWorth:
+                        nw = float(household.NetWorth)
+                        if nw <= maxNetWorth:
+                            filtered_households.append(household)
+                except (ValueError, TypeError):
+                    continue
+            households = filtered_households
+        
+        # Convert to dict
+        households_data = [model_to_dict(h) for h in households]
+        
+        # Include members if requested
+        if includeMembers:
+            for i, household in enumerate(households):
+                try:
+                    members = service.get_household_members(db, household.HouseholdID)
+                    households_data[i]['members'] = [model_to_dict(m) for m in members]
+                except Exception:
+                    households_data[i]['members'] = []
+        
+        # Get total count for pagination
+        all_households = service.get_all(db, status=status, min_net_worth=minNetWorth)
+        
+        # Apply same additional filtering to count
+        if riskTolerance:
+            all_households = [h for h in all_households if h.RiskTolerance == riskTolerance]
+        
+        if maxNetWorth:
+            filtered_all = []
+            for household in all_households:
+                try:
+                    if household.NetWorth:
+                        nw = float(household.NetWorth)
+                        if nw <= maxNetWorth:
+                            filtered_all.append(household)
+                except (ValueError, TypeError):
+                    continue
+            all_households = filtered_all
+        
+        total = len(all_households)
+        
+        return {
+            "households": households_data,
+            "total": total,
+            "page": page,
+            "pageSize": len(households_data),
+            "totalPages": (total + pageSize - 1) // pageSize if total > 0 else 0
+        }
+    
+    except Exception as e:
+        # Log the error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_households: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error fetching households: {str(e)}"
+        )
+
 @router.get("/households/{householdId}")
 def get_household(
     householdId: str = Path(...),
@@ -735,13 +827,3 @@ def get_household_financial_summary(
     result['accounts'] = []      # Version 4
     result['assets'] = []        # Version 4
     result['liabilities'] = []   # Version 4
-    result['cashFlow'] = {}      # Version 3
-    result['goals'] = []         # Version 3
-    
-    if includeProjections:
-        # This would require Version 3 (Financial Planning)
-        result['projections'] = {
-            "note": "Financial projections require Financial Planning data (Version 3)"
-        }
-    
-    return result

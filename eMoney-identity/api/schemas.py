@@ -7,30 +7,27 @@ from datetime import datetime
 import re
 
 class AuthSchema(Schema):
-    """Authentication schema for eMoney Identity Service - OAuth 2.0 Only"""
+    """Authentication schema for eMoney Identity Service - OAuth 2.0 with JWT"""
     client_id = fields.Str(
         required=True,
         validate=validate.Length(min=5),
         error_messages={'required': 'Client ID is required'}
     )
     
-    client_secret = fields.Str(
+    jwt_token = fields.Str(
         required=True,
         validate=validate.Length(min=10),
-        error_messages={'required': 'Client secret is required'}
+        error_messages={'required': 'JWT token is required'}
     )
     
-    grant_type = fields.Str(
+    api_key = fields.Str(
         required=True,
-        validate=validate.OneOf(['client_credentials', 'authorization_code', 'refresh_token']),
-        error_messages={'required': 'Grant type is required'}
+        validate=validate.Length(min=5),
+        error_messages={'required': 'API key is required'}
     )
     
-    scope = fields.Str(
-        required=False,
-        allow_none=True,
-        missing='read'
-    )
+    firm_id = fields.Str(required=False, allow_none=True, missing=None)
+    scope = fields.Str(required=False, allow_none=True, missing='API')
 
 class DateRangeSchema(Schema):
     """Date range schema"""
@@ -72,6 +69,9 @@ class FiltersSchema(Schema):
     # Date range filter
     dateRange = fields.Nested(DateRangeSchema, allow_none=True)
     
+    # Include inactive/disabled entities
+    includeInactive = fields.Bool(missing=False, default=False)
+    
     # Performance tuning
     batchSize = fields.Int(
         validate=validate.Range(min=10, max=1000),
@@ -81,7 +81,7 @@ class FiltersSchema(Schema):
     )
 
 class ScanConfigSchema(Schema):
-    """Scan configuration schema"""
+    """Scan configuration schema for identity entity extraction"""
     scanId = fields.Str(
         required=True,
         validate=[
@@ -101,17 +101,17 @@ class ScanConfigSchema(Schema):
     type = fields.List(
         fields.Str(validate=validate.OneOf([
             'user',
-            'office',
             'role',
             'permission',
-            'sharingrule',
-            'logon'
+            'office',
+            'logon',
+            'sharingrule'
         ])),
         required=True,
         validate=validate.Length(min=1),
         error_messages={
             'required': 'Type is required',
-            'validator_failed': 'Type must contain at least one valid entity type'
+            'validator_failed': 'Type must contain at least one valid entity type (user, role, permission, office, logon, sharingrule)'
         }
     )
     auth = fields.Nested(
@@ -130,18 +130,18 @@ class ScanRequestSchema(Schema):
     )
 
 class PaginationSchema(Schema):
-    """Pagination parameters schema"""
-    limit = fields.Int(
-        validate=validate.Range(min=1, max=1000),
+    """Pagination parameters schema - eMoney uses page & pageSize"""
+    page = fields.Int(
+        validate=validate.Range(min=1),
+        missing=1,
+        default=1,
+        error_messages={'validator_failed': 'Page must be at least 1'}
+    )
+    pageSize = fields.Int(
+        validate=validate.Range(min=1, max=10000),
         missing=100,
         default=100,
-        error_messages={'validator_failed': 'Limit must be between 1 and 1000'}
-    )
-    offset = fields.Int(
-        validate=validate.Range(min=0),
-        missing=0,
-        default=0,
-        error_messages={'validator_failed': 'Offset cannot be negative'}
+        error_messages={'validator_failed': 'Page size must be between 1 and 10000'}
     )
 
 class CleanupRequestSchema(Schema):
@@ -156,22 +156,112 @@ class CleanupRequestSchema(Schema):
     )
 
 class TableQuerySchema(Schema):
-    """Schema for querying specific tables"""
+    """Schema for querying specific identity tables"""
     tableName = fields.Str(
         validate=validate.OneOf([
             'user',
-            'office',
             'role',
             'permission',
-            'sharingrule',
-            'logon'
+            'office',
+            'logon',
+            'sharingrule'
         ]),
         missing='user',
         default='user',
         error_messages={
-            'validator_failed': 'Invalid table name. Must be one of: user, office, role, permission, sharingrule, logon'
+            'validator_failed': 'Invalid table name. Must be one of: user, role, permission, office, logon, sharingrule'
         }
     )
+
+class UserFilterSchema(Schema):
+    """Additional filters specific to user extraction"""
+    userId = fields.Str(allow_none=True)
+    email = fields.Str(allow_none=True)
+    username = fields.Str(allow_none=True)
+    officeId = fields.Str(allow_none=True)
+    roleId = fields.Str(allow_none=True)
+    userStatus = fields.Str(
+        validate=validate.OneOf(['active', 'inactive', 'suspended', 'all']),
+        missing='active',
+        default='active'
+    )
+    includeDeleted = fields.Bool(missing=False, default=False)
+
+class RoleFilterSchema(Schema):
+    """Additional filters specific to role extraction"""
+    roleId = fields.Str(allow_none=True)
+    roleName = fields.Str(allow_none=True)
+    roleType = fields.Str(
+        validate=validate.OneOf(['system', 'custom', 'all']),
+        missing='all',
+        default='all'
+    )
+    isActive = fields.Bool(allow_none=True)
+
+class PermissionFilterSchema(Schema):
+    """Additional filters specific to permission extraction"""
+    permissionId = fields.Str(allow_none=True)
+    roleId = fields.Str(allow_none=True)
+    userId = fields.Str(allow_none=True)
+    permissionType = fields.Str(allow_none=True)
+    resource = fields.Str(allow_none=True)
+    action = fields.Str(
+        validate=validate.OneOf(['read', 'write', 'delete', 'execute', 'admin', 'all']),
+        missing='all',
+        default='all'
+    )
+
+class OfficeFilterSchema(Schema):
+    """Additional filters specific to office extraction"""
+    officeId = fields.Str(allow_none=True)
+    officeName = fields.Str(allow_none=True)
+    parentOfficeId = fields.Str(allow_none=True)
+    officeStatus = fields.Str(
+        validate=validate.OneOf(['active', 'inactive', 'all']),
+        missing='active',
+        default='active'
+    )
+    includeSubOffices = fields.Bool(missing=False, default=False)
+
+class LogonFilterSchema(Schema):
+    """Additional filters specific to logon history extraction"""
+    logonId = fields.Str(allow_none=True)
+    userId = fields.Str(allow_none=True)
+    loginDateStart = fields.Str(
+        validate=validate.Regexp(
+            r'^\d{4}-\d{2}-\d{2}$',
+            error='Date must be in YYYY-MM-DD format'
+        ),
+        allow_none=True
+    )
+    loginDateEnd = fields.Str(
+        validate=validate.Regexp(
+            r'^\d{4}-\d{2}-\d{2}$',
+            error='Date must be in YYYY-MM-DD format'
+        ),
+        allow_none=True
+    )
+    logonStatus = fields.Str(
+        validate=validate.OneOf(['success', 'failed', 'locked', 'all']),
+        missing='all',
+        default='all'
+    )
+    ipAddress = fields.Str(allow_none=True)
+
+class SharingRuleFilterSchema(Schema):
+    """Additional filters specific to sharing rule extraction"""
+    sharingRuleId = fields.Str(allow_none=True)
+    userId = fields.Str(allow_none=True)
+    sharedWithUserId = fields.Str(allow_none=True)
+    officeId = fields.Str(allow_none=True)
+    resourceType = fields.Str(allow_none=True)
+    resourceId = fields.Str(allow_none=True)
+    accessLevel = fields.Str(
+        validate=validate.OneOf(['view', 'edit', 'full', 'all']),
+        missing='all',
+        default='all'
+    )
+    isActive = fields.Bool(allow_none=True)
 
 class ScanConfig:
     """Scan configuration data class"""
@@ -189,6 +279,14 @@ pagination_schema = PaginationSchema()
 cleanup_request_schema = CleanupRequestSchema()
 table_query_schema = TableQuerySchema()
 
+# Entity-specific filter schemas
+user_filter_schema = UserFilterSchema()
+role_filter_schema = RoleFilterSchema()
+permission_filter_schema = PermissionFilterSchema()
+office_filter_schema = OfficeFilterSchema()
+logon_filter_schema = LogonFilterSchema()
+sharingrule_filter_schema = SharingRuleFilterSchema()
+
 def validate_scan_request(json_data: dict) -> dict:
     """Validate scan request data and return validated config"""
     try:
@@ -197,17 +295,45 @@ def validate_scan_request(json_data: dict) -> dict:
     except ValidationError as err:
         raise err
 
-def validate_pagination_params(limit, offset, max_limit: int = 1000) -> tuple:
-    """Validate pagination parameters"""
+def validate_pagination_params(page, page_size, max_page_size: int = 100, max_limit: int = None) -> tuple:
+    """Validate pagination parameters (page/pageSize)"""
     try:
-        data = {'limit': limit, 'offset': offset}
-        # Create a temporary schema with custom max limit
+        # Use max_limit if provided, otherwise use max_page_size
+        max_size = max_limit if max_limit is not None else max_page_size
+        
+        data = {'page': page, 'pageSize': page_size}
+        # Create a temporary schema with custom max page size
         temp_schema = PaginationSchema()
-        temp_schema.fields['limit'].validate = validate.Range(min=1, max=max_limit)
+        temp_schema.fields['pageSize'].validate = validate.Range(min=1, max=max_size)
         validated = temp_schema.load(data)
-        return validated['limit'], validated['offset']
+        return validated['page'], validated['pageSize']
     except ValidationError as err:
         raise err
+
+def validate_limit_offset_params(limit, offset, max_limit: int = 500) -> tuple:
+    """Validate limit/offset pagination parameters"""
+    try:
+        # Convert to int if they're strings
+        limit = int(limit) if limit else 100
+        offset = int(offset) if offset else 0
+        
+        # Validate limit
+        if limit < 1 or limit > max_limit:
+            raise ValidationError({
+                'limit': [f'Must be greater than or equal to 1 and less than or equal to {max_limit}.']
+            })
+        
+        # Validate offset
+        if offset < 0:
+            raise ValidationError({
+                'offset': ['Must be greater than or equal to 0.']
+            })
+        
+        return limit, offset
+    except (ValueError, TypeError) as e:
+        raise ValidationError({
+            'pagination': [f'Invalid pagination parameters: {str(e)}']
+        })
 
 def validate_cleanup_request(json_data: dict) -> int:
     """Validate cleanup request and return days_old"""
@@ -224,3 +350,39 @@ def validate_table_query(table_name: str) -> str:
         return validated['tableName']
     except ValidationError as err:
         raise err
+
+def validate_entity_filters(entity_type: str, filters: dict) -> dict:
+    """Validate entity-specific filters based on entity type"""
+    try:
+        if entity_type == 'user':
+            return user_filter_schema.load(filters)
+        elif entity_type == 'role':
+            return role_filter_schema.load(filters)
+        elif entity_type == 'permission':
+            return permission_filter_schema.load(filters)
+        elif entity_type == 'office':
+            return office_filter_schema.load(filters)
+        elif entity_type == 'logon':
+            return logon_filter_schema.load(filters)
+        elif entity_type == 'sharingrule':
+            return sharingrule_filter_schema.load(filters)
+        else:
+            return filters
+    except ValidationError as err:
+        raise err
+
+def get_entity_primary_key(entity_type: str) -> str:
+    """Get the primary key field name for a given entity type (matches API response format)"""
+    primary_keys = {
+        'user': 'UserID',
+        'role': 'RoleID',
+        'permission': 'PermissionID',
+        'office': 'OfficeID',
+        'logon': 'LogonID',
+        'sharingrule': 'SharingRuleID'
+    }
+    return primary_keys.get(entity_type.lower(), 'ID')
+
+def get_valid_entity_types() -> list:
+    """Return list of valid entity types"""
+    return ['user', 'role', 'permission', 'office', 'logon', 'sharingrule']

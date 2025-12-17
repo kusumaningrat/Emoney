@@ -11,7 +11,7 @@ class APIService:
     """
     Service for interacting with eMoney Identity API
     Handles data retrieval for identity objects:
-    User, Office, Role, Permission, SharingRule, Logon
+    User, Role, Permission, Office, Logon, SharingRule
     """
 
     def __init__(self, base_url: str):
@@ -23,11 +23,11 @@ class APIService:
 
         # eMoney Identity API endpoints from config
         self.EMONEY_USERS_ENDPOINT = self.config.EMONEY_USERS_ENDPOINT
-        self.EMONEY_OFFICES_ENDPOINT = self.config.EMONEY_OFFICES_ENDPOINT
         self.EMONEY_ROLES_ENDPOINT = self.config.EMONEY_ROLES_ENDPOINT
         self.EMONEY_PERMISSIONS_ENDPOINT = self.config.EMONEY_PERMISSIONS_ENDPOINT
-        self.EMONEY_SHARINGRULES_ENDPOINT = self.config.EMONEY_SHARING_RULES_ENDPOINT
+        self.EMONEY_OFFICES_ENDPOINT = self.config.EMONEY_OFFICES_ENDPOINT
         self.EMONEY_LOGONS_ENDPOINT = self.config.EMONEY_LOGONS_ENDPOINT
+        self.EMONEY_SHARINGRULES_ENDPOINT = self.config.EMONEY_SHARINGRULES_ENDPOINT
 
         # Default headers for eMoney Identity API
         self.session.headers.update(
@@ -80,9 +80,12 @@ class APIService:
 
         # Ensure we have an authentication token
         if not self.access_token:
+            self.logger.info("No access token found, authenticating...")
             self.authenticate()
 
-        self.logger.info(f"Making {method} request to {url} with params: {params}")
+        self.logger.info(f"Making {method} request to: {url}")
+        self.logger.info(f"Request params: {params}")
+        self.logger.info(f"Authorization header present: {'Authorization' in self.session.headers}")
 
         for attempt in range(max_retries):
             try:
@@ -92,6 +95,9 @@ class APIService:
                     raise ValueError(f"Unsupported HTTP method: {method}")
 
                 self.logger.info(f"Response status code: {response.status_code}")
+                self.logger.debug(f"Response headers: {dict(response.headers)}")
+                self.logger.debug(f"Response content length: {len(response.content)}")
+                self.logger.debug(f"Response text preview: {response.text[:200] if response.text else 'EMPTY'}")
 
                 if response.status_code == 429:
                     retry_after = int(response.headers.get("Retry-After", 60))
@@ -108,7 +114,18 @@ class APIService:
                     continue
 
                 response.raise_for_status()
-                return response.json()
+                
+                # Check if response has content before parsing JSON
+                if not response.content:
+                    self.logger.warning("Empty response received from API")
+                    return {}
+                    
+                try:
+                    return response.json()
+                except ValueError as json_err:
+                    self.logger.error(f"Failed to parse JSON response: {json_err}")
+                    self.logger.error(f"Response content: {response.text[:500]}")
+                    raise
 
             except requests.exceptions.HTTPError as e:
                 self.logger.error(f"HTTP error: {str(e)}")
@@ -132,14 +149,16 @@ class APIService:
         raise Exception(f"Failed to complete request after {max_retries} attempts")
 
     # ---------------------------
-    # IDENTITY OBJECTS (eMoney API pagination uses page & pageSize)
+    # USER OBJECTS (eMoney API pagination uses page & pageSize)
     # ---------------------------
     def get_users(
         self,
         page: int = 1,
         page_size: int = 100,
         filters: Dict[str, Any] = None,
-        sort: str = None,
+        include_roles: bool = False,
+        include_permissions: bool = False,
+        include_office: bool = False,
     ) -> Dict[str, Any]:
         """
         Get user records from eMoney Identity API
@@ -149,8 +168,10 @@ class APIService:
         Args:
             page: Page number to retrieve (pagination)
             page_size: Maximum number of records per page (max 100)
-            filters: Additional filters to apply (field-value pairs)
-            sort: Field to sort by (e.g. 'last_name')
+            filters: Additional filters to apply (email, status, office_id, etc.)
+            include_roles: Include role data in response
+            include_permissions: Include permissions data in response
+            include_office: Include office data in response
 
         Returns:
             Dict with user records
@@ -158,14 +179,32 @@ class APIService:
         endpoint = self.EMONEY_USERS_ENDPOINT
         params = {"page": page, "pageSize": min(page_size, 100)}
         
-        if sort:
-            params["sort"] = sort
+        # Build include parameter
+        include_parts = []
+        if include_roles:
+            include_parts.append("roles")
+        if include_permissions:
+            include_parts.append("permissions")
+        if include_office:
+            include_parts.append("office")
+            
+        if include_parts:
+            params["include"] = ",".join(include_parts)
+            
         if filters:
             params.update(filters)
             
         return self._make_request(endpoint, params)
 
-    def get_user(self, user_id: str) -> Dict[str, Any]:
+    def get_user(
+        self, 
+        user_id: str, 
+        include_roles: bool = True,
+        include_permissions: bool = True,
+        include_office: bool = True,
+        include_logon_history: bool = False,
+        include_sharing_rules: bool = False,
+    ) -> Dict[str, Any]:
         """
         Get specific user by ID
         
@@ -173,65 +212,46 @@ class APIService:
         
         Args:
             user_id: User ID
+            include_roles: Include role data
+            include_permissions: Include permissions data
+            include_office: Include office data
+            include_logon_history: Include recent logon history
+            include_sharing_rules: Include sharing rules
 
         Returns:
-            User record
+            User record with requested includes
         """
         endpoint = f"{self.EMONEY_USERS_ENDPOINT}/{user_id}"
-        return self._make_request(endpoint)
-
-    def get_offices(
-        self,
-        page: int = 1,
-        page_size: int = 100,
-        filters: Dict[str, Any] = None,
-        sort: str = None,
-    ) -> Dict[str, Any]:
-        """
-        Get office records from eMoney Identity API
+        params = {}
         
-        Endpoint: GET /offices
-        
-        Args:
-            page: Page number to retrieve (pagination)
-            page_size: Maximum number of records per page (max 100)
-            filters: Additional filters to apply (field-value pairs)
-            sort: Field to sort by
-
-        Returns:
-            Dict with office records
-        """
-        endpoint = self.EMONEY_OFFICES_ENDPOINT
-        params = {"page": page, "pageSize": min(page_size, 100)}
-        
-        if sort:
-            params["sort"] = sort
-        if filters:
-            params.update(filters)
+        # Build include parameter
+        include_parts = []
+        if include_roles:
+            include_parts.append("roles")
+        if include_permissions:
+            include_parts.append("permissions")
+        if include_office:
+            include_parts.append("office")
+        if include_logon_history:
+            include_parts.append("logonHistory")
+        if include_sharing_rules:
+            include_parts.append("sharingRules")
+            
+        if include_parts:
+            params["include"] = ",".join(include_parts)
             
         return self._make_request(endpoint, params)
 
-    def get_office(self, office_id: str) -> Dict[str, Any]:
-        """
-        Get specific office by ID
-        
-        Endpoint: GET /offices/{officeId}
-        
-        Args:
-            office_id: Office ID
-
-        Returns:
-            Office record
-        """
-        endpoint = f"{self.EMONEY_OFFICES_ENDPOINT}/{office_id}"
-        return self._make_request(endpoint)
-
+    # ---------------------------
+    # ROLE OBJECTS
+    # ---------------------------
     def get_roles(
         self,
         page: int = 1,
         page_size: int = 100,
         filters: Dict[str, Any] = None,
-        sort: str = None,
+        include_permissions: bool = False,
+        include_users: bool = False,
     ) -> Dict[str, Any]:
         """
         Get role records from eMoney Identity API
@@ -241,8 +261,9 @@ class APIService:
         Args:
             page: Page number to retrieve (pagination)
             page_size: Maximum number of records per page (max 100)
-            filters: Additional filters to apply (field-value pairs)
-            sort: Field to sort by
+            filters: Additional filters (role_type, is_active, etc.)
+            include_permissions: Include associated permissions
+            include_users: Include users with this role
 
         Returns:
             Dict with role records
@@ -250,14 +271,27 @@ class APIService:
         endpoint = self.EMONEY_ROLES_ENDPOINT
         params = {"page": page, "pageSize": min(page_size, 100)}
         
-        if sort:
-            params["sort"] = sort
+        # Build include parameter
+        include_parts = []
+        if include_permissions:
+            include_parts.append("permissions")
+        if include_users:
+            include_parts.append("users")
+            
+        if include_parts:
+            params["include"] = ",".join(include_parts)
+        
         if filters:
             params.update(filters)
             
         return self._make_request(endpoint, params)
 
-    def get_role(self, role_id: str) -> Dict[str, Any]:
+    def get_role(
+        self, 
+        role_id: str,
+        include_permissions: bool = True,
+        include_users: bool = False,
+    ) -> Dict[str, Any]:
         """
         Get specific role by ID
         
@@ -265,19 +299,35 @@ class APIService:
         
         Args:
             role_id: Role ID
+            include_permissions: Include associated permissions
+            include_users: Include users with this role
 
         Returns:
             Role record
         """
         endpoint = f"{self.EMONEY_ROLES_ENDPOINT}/{role_id}"
-        return self._make_request(endpoint)
+        params = {}
+        
+        # Build include parameter
+        include_parts = []
+        if include_permissions:
+            include_parts.append("permissions")
+        if include_users:
+            include_parts.append("users")
+            
+        if include_parts:
+            params["include"] = ",".join(include_parts)
+            
+        return self._make_request(endpoint, params)
 
+    # ---------------------------
+    # PERMISSION OBJECTS
+    # ---------------------------
     def get_permissions(
         self,
         page: int = 1,
         page_size: int = 100,
         filters: Dict[str, Any] = None,
-        sort: str = None,
     ) -> Dict[str, Any]:
         """
         Get permission records from eMoney Identity API
@@ -287,8 +337,7 @@ class APIService:
         Args:
             page: Page number to retrieve (pagination)
             page_size: Maximum number of records per page (max 100)
-            filters: Additional filters to apply (field-value pairs)
-            sort: Field to sort by
+            filters: Additional filters (role_id, user_id, resource, action, etc.)
 
         Returns:
             Dict with permission records
@@ -296,8 +345,6 @@ class APIService:
         endpoint = self.EMONEY_PERMISSIONS_ENDPOINT
         params = {"page": page, "pageSize": min(page_size, 100)}
         
-        if sort:
-            params["sort"] = sort
         if filters:
             params.update(filters)
             
@@ -318,69 +365,108 @@ class APIService:
         endpoint = f"{self.EMONEY_PERMISSIONS_ENDPOINT}/{permission_id}"
         return self._make_request(endpoint)
 
-    def get_sharingrules(
+    # ---------------------------
+    # OFFICE OBJECTS
+    # ---------------------------
+    def get_offices(
         self,
         page: int = 1,
         page_size: int = 100,
         filters: Dict[str, Any] = None,
-        sort: str = None,
+        include_users: bool = False,
+        include_suboffices: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get sharingrule records from eMoney Identity API
+        Get office records from eMoney Identity API
         
-        Endpoint: GET /sharingrules
+        Endpoint: GET /offices
         
         Args:
             page: Page number to retrieve (pagination)
             page_size: Maximum number of records per page (max 100)
-            filters: Additional filters to apply (field-value pairs)
-            sort: Field to sort by
+            filters: Additional filters (parent_office_id, status, etc.)
+            include_users: Include users in this office
+            include_suboffices: Include sub-offices
 
         Returns:
-            Dict with sharingrule records
+            Dict with office records
         """
-        endpoint = self.EMONEY_SHARINGRULES_ENDPOINT
+        endpoint = self.EMONEY_OFFICES_ENDPOINT
         params = {"page": page, "pageSize": min(page_size, 100)}
         
-        if sort:
-            params["sort"] = sort
+        # Build include parameter
+        include_parts = []
+        if include_users:
+            include_parts.append("users")
+        if include_suboffices:
+            include_parts.append("suboffices")
+            
+        if include_parts:
+            params["include"] = ",".join(include_parts)
+        
         if filters:
             params.update(filters)
             
         return self._make_request(endpoint, params)
 
-    def get_sharingrule(self, sharingrule_id: str) -> Dict[str, Any]:
+    def get_office(
+        self, 
+        office_id: str,
+        include_users: bool = True,
+        include_suboffices: bool = True,
+        include_parent: bool = False,
+    ) -> Dict[str, Any]:
         """
-        Get specific sharingrule by ID
+        Get specific office by ID
         
-        Endpoint: GET /sharingrules/{sharingruleId}
+        Endpoint: GET /offices/{officeId}
         
         Args:
-            sharingrule_id: Sharingrule ID
+            office_id: Office ID
+            include_users: Include users in this office
+            include_suboffices: Include sub-offices
+            include_parent: Include parent office details
 
         Returns:
-            Sharingrule record
+            Office record
         """
-        endpoint = f"{self.EMONEY_SHARINGRULES_ENDPOINT}/{sharingrule_id}"
-        return self._make_request(endpoint)
+        endpoint = f"{self.EMONEY_OFFICES_ENDPOINT}/{office_id}"
+        params = {}
+        
+        # Build include parameter
+        include_parts = []
+        if include_users:
+            include_parts.append("users")
+        if include_suboffices:
+            include_parts.append("suboffices")
+        if include_parent:
+            include_parts.append("parent")
+            
+        if include_parts:
+            params["include"] = ",".join(include_parts)
+            
+        return self._make_request(endpoint, params)
 
+    # ---------------------------
+    # LOGON OBJECTS
+    # ---------------------------
     def get_logons(
         self,
         page: int = 1,
         page_size: int = 100,
         filters: Dict[str, Any] = None,
-        sort: str = None,
+        include_user: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get logon records from eMoney Identity API
+        Get logon history records from eMoney Identity API
         
         Endpoint: GET /logons
         
         Args:
             page: Page number to retrieve (pagination)
             page_size: Maximum number of records per page (max 100)
-            filters: Additional filters to apply (field-value pairs)
-            sort: Field to sort by
+            filters: Additional filters (user_id, date_range, status, ip_address, etc.)
+            include_user: Include user details in response
 
         Returns:
             Dict with logon records
@@ -388,24 +474,183 @@ class APIService:
         endpoint = self.EMONEY_LOGONS_ENDPOINT
         params = {"page": page, "pageSize": min(page_size, 100)}
         
-        if sort:
-            params["sort"] = sort
+        if include_user:
+            params["include"] = "user"
+        
         if filters:
             params.update(filters)
             
         return self._make_request(endpoint, params)
 
-    def get_logon(self, logon_id: str) -> Dict[str, Any]:
+    def get_logon(
+        self, 
+        logon_id: str,
+        include_user: bool = True,
+    ) -> Dict[str, Any]:
         """
-        Get specific logon by ID
+        Get specific logon record by ID
         
         Endpoint: GET /logons/{logonId}
         
         Args:
             logon_id: Logon ID
+            include_user: Include user details
 
         Returns:
             Logon record
         """
         endpoint = f"{self.EMONEY_LOGONS_ENDPOINT}/{logon_id}"
-        return self._make_request(endpoint)
+        params = {}
+        
+        if include_user:
+            params["include"] = "user"
+            
+        return self._make_request(endpoint, params)
+
+    def get_user_logon_history(
+        self,
+        user_id: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        status: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Get logon history for a specific user
+        
+        Endpoint: GET /users/{userId}/logons
+        
+        Args:
+            user_id: User ID
+            start_date: Start date for history (YYYY-MM-DD)
+            end_date: End date for history (YYYY-MM-DD)
+            status: Filter by logon status (success, failed, locked)
+            page: Page number
+            page_size: Records per page
+
+        Returns:
+            Logon history for the user
+        """
+        endpoint = f"{self.EMONEY_USERS_ENDPOINT}/{user_id}/logons"
+        params = {"page": page, "pageSize": min(page_size, 100)}
+        
+        if start_date:
+            params["startDate"] = start_date
+        if end_date:
+            params["endDate"] = end_date
+        if status:
+            params["status"] = status
+            
+        return self._make_request(endpoint, params)
+
+    # ---------------------------
+    # SHARING RULE OBJECTS
+    # ---------------------------
+    def get_sharing_rules(
+        self,
+        page: int = 1,
+        page_size: int = 100,
+        filters: Dict[str, Any] = None,
+        include_user: bool = False,
+        include_shared_with_user: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Get sharing rule records from eMoney Identity API
+        
+        Endpoint: GET /sharingrules
+        
+        Args:
+            page: Page number to retrieve (pagination)
+            page_size: Maximum number of records per page (max 100)
+            filters: Additional filters (user_id, resource_type, access_level, etc.)
+            include_user: Include owner user details
+            include_shared_with_user: Include shared with user details
+
+        Returns:
+            Dict with sharing rule records
+        """
+        endpoint = self.EMONEY_SHARINGRULES_ENDPOINT
+        params = {"page": page, "pageSize": min(page_size, 100)}
+        
+        # Build include parameter
+        include_parts = []
+        if include_user:
+            include_parts.append("user")
+        if include_shared_with_user:
+            include_parts.append("sharedWithUser")
+            
+        if include_parts:
+            params["include"] = ",".join(include_parts)
+        
+        if filters:
+            params.update(filters)
+            
+        return self._make_request(endpoint, params)
+
+    def get_sharing_rule(
+        self, 
+        sharing_rule_id: str,
+        include_user: bool = True,
+        include_shared_with_user: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Get specific sharing rule by ID
+        
+        Endpoint: GET /sharingrules/{sharingRuleId}
+        
+        Args:
+            sharing_rule_id: Sharing Rule ID
+            include_user: Include owner user details
+            include_shared_with_user: Include shared with user details
+
+        Returns:
+            Sharing rule record
+        """
+        endpoint = f"{self.EMONEY_SHARINGRULES_ENDPOINT}/{sharing_rule_id}"
+        params = {}
+        
+        # Build include parameter
+        include_parts = []
+        if include_user:
+            include_parts.append("user")
+        if include_shared_with_user:
+            include_parts.append("sharedWithUser")
+            
+        if include_parts:
+            params["include"] = ",".join(include_parts)
+            
+        return self._make_request(endpoint, params)
+
+    def get_user_sharing_rules(
+        self,
+        user_id: str,
+        resource_type: Optional[str] = None,
+        access_level: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> Dict[str, Any]:
+        """
+        Get sharing rules owned by a specific user
+        
+        Endpoint: GET /users/{userId}/sharingrules
+        
+        Args:
+            user_id: User ID
+            resource_type: Filter by resource type
+            access_level: Filter by access level (view, edit, full)
+            page: Page number
+            page_size: Records per page
+
+        Returns:
+            Sharing rules owned by the user
+        """
+        endpoint = f"{self.EMONEY_USERS_ENDPOINT}/{user_id}/sharingrules"
+        params = {"page": page, "pageSize": min(page_size, 100)}
+        
+        if resource_type:
+            params["resourceType"] = resource_type
+        if access_level:
+            params["accessLevel"] = access_level
+            
+        return self._make_request(endpoint, params)

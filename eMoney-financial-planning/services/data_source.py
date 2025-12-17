@@ -38,7 +38,7 @@ def create_data_source(
     """
     logger = get_logger(__name__)
     config = get_config()
-    api_service = APIService(base_url=config.FINANCIAL_PLANNING_API_BASE_URL)
+    api_service = APIService(base_url=config.EMONEY_API_BASE_URL)
 
     # Get the single entity type to extract
     entity_type = job_config.get("type")[0]  # Expecting a list with one entity type

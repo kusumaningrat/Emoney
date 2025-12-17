@@ -5,8 +5,8 @@ from typing import Dict, Any
 class Config:
     """Base application configuration"""
     APP_VERSION = os.environ.get('APP_VERSION', '1.0.0')
-    APP_TITLE = os.environ.get('APP_TITLE', 'Financial Planning Core Data Extraction Service')
-    APP_DESCRIPTION = os.environ.get('APP_DESCRIPTION', 'Service for extracting financial planning data using DLT')
+    APP_TITLE = os.environ.get('APP_TITLE', 'eMoney Planning Data Extraction Service')
+    APP_DESCRIPTION = os.environ.get('APP_DESCRIPTION', 'Service for extracting and loading eMoney planning data using DLT')
 
     # Flask settings
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production-immediately')
@@ -25,10 +25,10 @@ class Config:
     # Database settings for DLT PostgreSQL destination
     DB_HOST = os.environ.get('DB_HOST', 'localhost')
     DB_PORT = int(os.environ.get('DB_PORT', 5432))
-    DB_NAME = os.environ.get('DB_NAME', 'financial_planning_data')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_planning_data')
     DB_USER = os.environ.get('DB_USER', 'postgres')
     DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
-    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'financial_planning')
+    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'emoney_planning')
     
     # Connection pool settings
     DB_POOL_SIZE = int(os.environ.get('DB_POOL_SIZE', 10))
@@ -37,37 +37,31 @@ class Config:
     DB_POOL_RECYCLE = int(os.environ.get('DB_POOL_RECYCLE', 3600))
     
     # DLT specific settings
-    DLT_PIPELINE_NAME = os.environ.get('DLT_PIPELINE_NAME', 'financial_planning_extraction')
+    DLT_PIPELINE_NAME = os.environ.get('DLT_PIPELINE_NAME', 'emoney_planning_extraction')
     DLT_WORKING_DIR = os.environ.get('DLT_WORKING_DIR', '.dlt')
     DLT_RUNTIME_ENV = os.environ.get('DLT_RUNTIME_ENV', 'production')
     
-    # Financial Planning Core API Configuration (Version 3)
-    FINANCIAL_PLANNING_API_BASE_URL = os.environ.get(
-        'FINANCIAL_PLANNING_API_BASE_URL', 
-        'https://api.financial-planning.com'
-    )
-    FINANCIAL_PLANNING_API_TIMEOUT = int(os.environ.get('FINANCIAL_PLANNING_API_TIMEOUT', 30))
-    FINANCIAL_PLANNING_API_RATE_LIMIT = int(os.environ.get('FINANCIAL_PLANNING_API_RATE_LIMIT', 100))
-    FINANCIAL_PLANNING_RETRY_ATTEMPTS = int(os.environ.get('FINANCIAL_PLANNING_RETRY_ATTEMPTS', 3))
-    FINANCIAL_PLANNING_RETRY_DELAY = int(os.environ.get('FINANCIAL_PLANNING_RETRY_DELAY', 1))
+    # eMoney API Configuration
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
+    EMONEY_API_TIMEOUT = int(os.environ.get('EMONEY_API_TIMEOUT', 30))
+    EMONEY_API_RATE_LIMIT = int(os.environ.get('EMONEY_API_RATE_LIMIT', 100))
+    EMONEY_RETRY_ATTEMPTS = int(os.environ.get('EMONEY_RETRY_ATTEMPTS', 3))
+    EMONEY_RETRY_DELAY = int(os.environ.get('EMONEY_RETRY_DELAY', 1))
 
-    # Endpoint Configuration Variables - Financial Planning Core
-    PLANS_ENDPOINT = "/plans"
-    GOALS_ENDPOINT = "/goals"
-    SCENARIOS_ENDPOINT = "/scenarios"
-    CASHFLOW_ENDPOINT = "/cashflow"
-    NETWORTH_ENDPOINT = "/networth"
+    # eMoney Endpoint Configuration Variables
+    EMONEY_PLANS_ENDPOINT = "/plans"
+    EMONEY_GOALS_ENDPOINT = "/goals"
+    EMONEY_SCENARIOS_ENDPOINT = "/scenarios"
+    EMONEY_CASHFLOW_ENDPOINT = "/cashflow"
+    EMONEY_NETWORTH_ENDPOINT = "/networth"
 
     # HMAC authentication settings
     HMAC_SECRET_KEY = os.environ.get('HMAC_SECRET_KEY', 'change-this-in-production')
     HMAC_ALGORITHM = os.environ.get('HMAC_ALGORITHM', 'SHA256')
-    HMAC_ALLOWED_CLIENT_IDS = os.environ.get(
-        'HMAC_ALLOWED_CLIENT_IDS', 
-        'financial-planning-controller-service'
-    ).split(',')
-    HMAC_HEADER_NAME = os.environ.get('HMAC_HEADER_NAME', 'X-Financial-Planning-Signature')
-    HMAC_TIMESTAMP_HEADER = os.environ.get('HMAC_TIMESTAMP_HEADER', 'X-Financial-Planning-Timestamp')
-    HMAC_CLIENT_ID_HEADER = os.environ.get('HMAC_CLIENT_ID_HEADER', 'X-Financial-Planning-Client-ID')
+    HMAC_ALLOWED_CLIENT_IDS = os.environ.get('HMAC_ALLOWED_CLIENT_IDS', 'emoney-controller-service').split(',')
+    HMAC_HEADER_NAME = os.environ.get('HMAC_HEADER_NAME', 'X-Emoney-Signature')
+    HMAC_TIMESTAMP_HEADER = os.environ.get('HMAC_TIMESTAMP_HEADER', 'X-Emoney-Timestamp')
+    HMAC_CLIENT_ID_HEADER = os.environ.get('HMAC_CLIENT_ID_HEADER', 'X-Emoney-Client-ID')
     HMAC_SIGNATURE_MAX_AGE = int(os.environ.get('HMAC_SIGNATURE_MAX_AGE', 300))  # 5 minutes
     HMAC_ENABLED = os.environ.get('HMAC_ENABLED', 'False').lower() == 'true'
     
@@ -100,16 +94,13 @@ class Config:
     LOKI_USERNAME = os.environ.get('LOKI_USERNAME', '')
     LOKI_PASSWORD = os.environ.get('LOKI_PASSWORD', '')
     LOKI_LABELS = {
-        'app': 'financial_planning_extraction',
+        'app': 'emoney_planning_extraction',
         'env': os.environ.get('FLASK_ENV', 'development'),
         'service': 'api'
     }
     
     # CORS settings
-    CORS_ORIGINS = os.environ.get(
-        'CORS_ORIGINS', 
-        'http://localhost:3000,http://localhost:8080'
-    ).split(',')
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:8080').split(',')
     CORS_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
     CORS_ALLOW_HEADERS = ['Content-Type', 'Authorization', 'X-Requested-With']
     
@@ -138,88 +129,41 @@ class Config:
     # Kafka settings (optional)
     KAFKA_ENABLED = os.environ.get('KAFKA_ENABLED', 'False').lower() == 'true'
     KAFKA_BOOTSTRAP_SERVERS = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-    KAFKA_TOPIC_PLANS = os.environ.get('KAFKA_TOPIC_PLANS', 'financial_plans_topic')
-    KAFKA_TOPIC_GOALS = os.environ.get('KAFKA_TOPIC_GOALS', 'goals_topic')
-    KAFKA_TOPIC_SCENARIOS = os.environ.get('KAFKA_TOPIC_SCENARIOS', 'scenarios_topic')
+    KAFKA_TOPIC_1 = os.environ.get('KAFKA_TOPIC', 'kafka_topic_1')
+    KAFKA_TOPIC_2 = os.environ.get('KAFKA_TOPIC_2', 'kafka_topic_2')
+    KAFKA_TOPIC_3 = os.environ.get('KAFKA_TOPIC_3', 'kafka_topic_3')
 
-    # ========================================
-    # EXTRACTION CONTROL VARIABLES
-    # Financial Planning Core Entities
-    # ========================================
+    # Extraction Control Variables for eMoney Planning entities
     
-    # Financial Plan extraction control variables
-    FINANCIALPLAN_CHECKPOINT_FREQUENCY = int(
-        os.environ.get('FINANCIALPLAN_CHECKPOINT_FREQUENCY', 10)
-    )  # save checkpoint every N batches
-    FINANCIALPLAN_PAUSE_CHECK_FREQUENCY = int(
-        os.environ.get('FINANCIALPLAN_PAUSE_CHECK_FREQUENCY', 5)
-    )  # check for pause every N batches
-    FINANCIALPLAN_CANCEL_CHECK_FREQUENCY = int(
-        os.environ.get('FINANCIALPLAN_CANCEL_CHECK_FREQUENCY', 2)
-    )  # check for cancellation every N batches
-    FINANCIALPLAN_MAX_BATCHES = int(
-        os.environ.get('FINANCIALPLAN_MAX_BATCHES', 1000)
-    )  # maximum number of batches to process
+    # Plan extraction control variables
+    PLAN_CHECKPOINT_FREQUENCY = int(os.environ.get('PLAN_CHECKPOINT_FREQUENCY', 10))
+    PLAN_PAUSE_CHECK_FREQUENCY = int(os.environ.get('PLAN_PAUSE_CHECK_FREQUENCY', 5))
+    PLAN_CANCEL_CHECK_FREQUENCY = int(os.environ.get('PLAN_CANCEL_CHECK_FREQUENCY', 2))
+    PLAN_MAX_BATCHES = int(os.environ.get('PLAN_MAX_BATCHES', 1000))
 
     # Goal extraction control variables
-    GOAL_CHECKPOINT_FREQUENCY = int(
-        os.environ.get('GOAL_CHECKPOINT_FREQUENCY', 10)
-    )
-    GOAL_PAUSE_CHECK_FREQUENCY = int(
-        os.environ.get('GOAL_PAUSE_CHECK_FREQUENCY', 5)
-    )
-    GOAL_CANCEL_CHECK_FREQUENCY = int(
-        os.environ.get('GOAL_CANCEL_CHECK_FREQUENCY', 2)
-    )
-    GOAL_MAX_BATCHES = int(
-        os.environ.get('GOAL_MAX_BATCHES', 1000)
-    )
+    GOAL_CHECKPOINT_FREQUENCY = int(os.environ.get('GOAL_CHECKPOINT_FREQUENCY', 10))
+    GOAL_PAUSE_CHECK_FREQUENCY = int(os.environ.get('GOAL_PAUSE_CHECK_FREQUENCY', 5))
+    GOAL_CANCEL_CHECK_FREQUENCY = int(os.environ.get('GOAL_CANCEL_CHECK_FREQUENCY', 2))
+    GOAL_MAX_BATCHES = int(os.environ.get('GOAL_MAX_BATCHES', 1000))
 
     # Scenario extraction control variables
-    SCENARIO_CHECKPOINT_FREQUENCY = int(
-        os.environ.get('SCENARIO_CHECKPOINT_FREQUENCY', 10)
-    )
-    SCENARIO_PAUSE_CHECK_FREQUENCY = int(
-        os.environ.get('SCENARIO_PAUSE_CHECK_FREQUENCY', 5)
-    )
-    SCENARIO_CANCEL_CHECK_FREQUENCY = int(
-        os.environ.get('SCENARIO_CANCEL_CHECK_FREQUENCY', 2)
-    )
-    SCENARIO_MAX_BATCHES = int(
-        os.environ.get('SCENARIO_MAX_BATCHES', 1000)
-    )
+    SCENARIO_CHECKPOINT_FREQUENCY = int(os.environ.get('SCENARIO_CHECKPOINT_FREQUENCY', 10))
+    SCENARIO_PAUSE_CHECK_FREQUENCY = int(os.environ.get('SCENARIO_PAUSE_CHECK_FREQUENCY', 5))
+    SCENARIO_CANCEL_CHECK_FREQUENCY = int(os.environ.get('SCENARIO_CANCEL_CHECK_FREQUENCY', 2))
+    SCENARIO_MAX_BATCHES = int(os.environ.get('SCENARIO_MAX_BATCHES', 1000))
 
-    # Cash Flow extraction control variables
-    CASHFLOW_CHECKPOINT_FREQUENCY = int(
-        os.environ.get('CASHFLOW_CHECKPOINT_FREQUENCY', 10)
-    )
-    CASHFLOW_PAUSE_CHECK_FREQUENCY = int(
-        os.environ.get('CASHFLOW_PAUSE_CHECK_FREQUENCY', 5)
-    )
-    CASHFLOW_CANCEL_CHECK_FREQUENCY = int(
-        os.environ.get('CASHFLOW_CANCEL_CHECK_FREQUENCY', 2)
-    )
-    CASHFLOW_MAX_BATCHES = int(
-        os.environ.get('CASHFLOW_MAX_BATCHES', 1000)
-    )
+    # CashFlow extraction control variables
+    CASHFLOW_CHECKPOINT_FREQUENCY = int(os.environ.get('CASHFLOW_CHECKPOINT_FREQUENCY', 10))
+    CASHFLOW_PAUSE_CHECK_FREQUENCY = int(os.environ.get('CASHFLOW_PAUSE_CHECK_FREQUENCY', 5))
+    CASHFLOW_CANCEL_CHECK_FREQUENCY = int(os.environ.get('CASHFLOW_CANCEL_CHECK_FREQUENCY', 2))
+    CASHFLOW_MAX_BATCHES = int(os.environ.get('CASHFLOW_MAX_BATCHES', 1000))
 
-    # Net Worth extraction control variables
-    NETWORTH_CHECKPOINT_FREQUENCY = int(
-        os.environ.get('NETWORTH_CHECKPOINT_FREQUENCY', 10)
-    )
-    NETWORTH_PAUSE_CHECK_FREQUENCY = int(
-        os.environ.get('NETWORTH_PAUSE_CHECK_FREQUENCY', 5)
-    )
-    NETWORTH_CANCEL_CHECK_FREQUENCY = int(
-        os.environ.get('NETWORTH_CANCEL_CHECK_FREQUENCY', 2)
-    )
-    NETWORTH_MAX_BATCHES = int(
-        os.environ.get('NETWORTH_MAX_BATCHES', 1000)
-    )
-
-    # Test mode settings
-    TEST_BATCH_DELAY_SECONDS = float(os.environ.get('TEST_BATCH_DELAY_SECONDS', 5))
-    TEST_RECORD_DELAY_SECONDS = float(os.environ.get('TEST_RECORD_DELAY_SECONDS', 0.1))
+    # NetWorth extraction control variables
+    NETWORTH_CHECKPOINT_FREQUENCY = int(os.environ.get('NETWORTH_CHECKPOINT_FREQUENCY', 10))
+    NETWORTH_PAUSE_CHECK_FREQUENCY = int(os.environ.get('NETWORTH_PAUSE_CHECK_FREQUENCY', 5))
+    NETWORTH_CANCEL_CHECK_FREQUENCY = int(os.environ.get('NETWORTH_CANCEL_CHECK_FREQUENCY', 2))
+    NETWORTH_MAX_BATCHES = int(os.environ.get('NETWORTH_MAX_BATCHES', 1000))
     
     @classmethod
     def get_database_url(cls) -> str:
@@ -257,19 +201,17 @@ class Config:
             'scan_timeout_hours': cls.SCAN_TIMEOUT_HOURS,
             'default_batch_size': cls.DEFAULT_BATCH_SIZE,
             
-            # Financial Planning API configuration
-            'financial_planning_api_base_url': cls.FINANCIAL_PLANNING_API_BASE_URL,
-            'financial_planning_api_timeout': cls.FINANCIAL_PLANNING_API_TIMEOUT,
-            'financial_planning_api_rate_limit': cls.FINANCIAL_PLANNING_API_RATE_LIMIT,
-            'financial_planning_retry_attempts': cls.FINANCIAL_PLANNING_RETRY_ATTEMPTS,
-            'financial_planning_retry_delay': cls.FINANCIAL_PLANNING_RETRY_DELAY,
-            
-            # Endpoints
-            'plans_endpoint': cls.PLANS_ENDPOINT,
-            'goals_endpoint': cls.GOALS_ENDPOINT,
-            'scenarios_endpoint': cls.SCENARIOS_ENDPOINT,
-            'cashflow_endpoint': cls.CASHFLOW_ENDPOINT,
-            'networth_endpoint': cls.NETWORTH_ENDPOINT,
+            # eMoney API configuration
+            'emoney_api_base_url': cls.EMONEY_API_BASE_URL,
+            'emoney_api_timeout': cls.EMONEY_API_TIMEOUT,
+            'emoney_api_rate_limit': cls.EMONEY_API_RATE_LIMIT,
+            'emoney_plans_endpoint': cls.EMONEY_PLANS_ENDPOINT,
+            'emoney_goals_endpoint': cls.EMONEY_GOALS_ENDPOINT,
+            'emoney_scenarios_endpoint': cls.EMONEY_SCENARIOS_ENDPOINT,
+            'emoney_cashflow_endpoint': cls.EMONEY_CASHFLOW_ENDPOINT,
+            'emoney_networth_endpoint': cls.EMONEY_NETWORTH_ENDPOINT,
+            'emoney_retry_attempts': cls.EMONEY_RETRY_ATTEMPTS,
+            'emoney_retry_delay': cls.EMONEY_RETRY_DELAY,
             
             # Cache configuration
             'cache_enabled': cls.CACHE_ENABLED,
@@ -301,16 +243,16 @@ class Config:
                 'environment': cls.DLT_RUNTIME_ENV
             },
             'sources': {
-                'financial_planning_source': {
-                    'base_url': cls.FINANCIAL_PLANNING_API_BASE_URL,
-                    'plans_endpoint': cls.PLANS_ENDPOINT,
-                    'goals_endpoint': cls.GOALS_ENDPOINT,
-                    'scenarios_endpoint': cls.SCENARIOS_ENDPOINT,
-                    'cashflow_endpoint': cls.CASHFLOW_ENDPOINT,
-                    'networth_endpoint': cls.NETWORTH_ENDPOINT,
+                'emoney_planning_source': {
+                    'base_url': cls.EMONEY_API_BASE_URL,
+                    'plans_endpoint': cls.EMONEY_PLANS_ENDPOINT,
+                    'goals_endpoint': cls.EMONEY_GOALS_ENDPOINT,
+                    'scenarios_endpoint': cls.EMONEY_SCENARIOS_ENDPOINT,
+                    'cashflow_endpoint': cls.EMONEY_CASHFLOW_ENDPOINT,
+                    'networth_endpoint': cls.EMONEY_NETWORTH_ENDPOINT,
                     'batch_size': cls.DEFAULT_BATCH_SIZE,
-                    'timeout': cls.FINANCIAL_PLANNING_API_TIMEOUT,
-                    'retry_attempts': cls.FINANCIAL_PLANNING_RETRY_ATTEMPTS
+                    'timeout': cls.EMONEY_API_TIMEOUT,
+                    'retry_attempts': cls.EMONEY_RETRY_ATTEMPTS
                 }
             }
         }
@@ -382,11 +324,16 @@ class Config:
             'docs_path': cls.API_DOCS_PATH,
             'docs_enabled': cls.API_DOCS_ENABLED,
             'prefix': cls.API_PREFIX,
-            'financial_planning_api_base_url': cls.FINANCIAL_PLANNING_API_BASE_URL,
-            'financial_planning_api_timeout': cls.FINANCIAL_PLANNING_API_TIMEOUT,
-            'financial_planning_api_rate_limit': cls.FINANCIAL_PLANNING_API_RATE_LIMIT,
-            'retry_attempts': cls.FINANCIAL_PLANNING_RETRY_ATTEMPTS,
-            'retry_delay': cls.FINANCIAL_PLANNING_RETRY_DELAY,
+            'emoney_api_base_url': cls.EMONEY_API_BASE_URL,
+            'emoney_api_timeout': cls.EMONEY_API_TIMEOUT,
+            'emoney_api_rate_limit': cls.EMONEY_API_RATE_LIMIT,
+            'plans_endpoint': cls.EMONEY_PLANS_ENDPOINT,
+            'goals_endpoint': cls.EMONEY_GOALS_ENDPOINT,
+            'scenarios_endpoint': cls.EMONEY_SCENARIOS_ENDPOINT,
+            'cashflow_endpoint': cls.EMONEY_CASHFLOW_ENDPOINT,
+            'networth_endpoint': cls.EMONEY_NETWORTH_ENDPOINT,
+            'retry_attempts': cls.EMONEY_RETRY_ATTEMPTS,
+            'retry_delay': cls.EMONEY_RETRY_DELAY,
             "max_scan_list_limit": 100,
             "default_scan_list_limit": 20,
             "max_results_limit": 500,
@@ -402,7 +349,7 @@ class DevelopmentConfig(Config):
     TESTING = False
     
     # Use development database
-    DB_NAME = os.environ.get('DB_NAME', 'financial_planning_data_dev')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_planning_data_dev')
     
     # Relaxed settings for development
     MAX_CONCURRENT_SCANS = int(os.environ.get('MAX_CONCURRENT_SCANS', 2))
@@ -420,10 +367,7 @@ class DevelopmentConfig(Config):
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '2'))
 
-    FINANCIAL_PLANNING_API_BASE_URL = os.environ.get(
-        'FINANCIAL_PLANNING_API_BASE_URL',
-        'http://financial_planning_mock_server:5001'
-    )
+    EMONEY_API_BASE_URL = 'http://139.59.113.219:6820'
 
 
 class TestingConfig(Config):
@@ -432,8 +376,8 @@ class TestingConfig(Config):
     DEBUG = False
     
     # Use test database
-    DB_NAME = os.environ.get('DB_NAME', 'financial_planning_data_test')
-    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'financial_planning_test')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_planning_data_test')
+    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'emoney_planning_test')
     
     # Disable external services in testing
     CACHE_ENABLED = False
@@ -449,11 +393,12 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     BCRYPT_LOG_ROUNDS = 4
 
-    FINANCIAL_PLANNING_API_BASE_URL = os.environ.get(
-        'FINANCIAL_PLANNING_API_BASE_URL',
-        'http://financial_planning_mock_server:5001'
-    )
+    EMONEY_API_BASE_URL = 'http://139.59.113.219:6820'
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', 2))
+
+    # Test mode configuration for extraction
+    TEST_BATCH_DELAY_SECONDS = float(os.environ.get('TEST_BATCH_DELAY_SECONDS', 5))
+    TEST_RECORD_DELAY_SECONDS = float(os.environ.get('TEST_RECORD_DELAY_SECONDS', 0.1))
 
 
 class StagingConfig(Config):
@@ -462,7 +407,7 @@ class StagingConfig(Config):
     TESTING = False
     
     # Use staging database
-    DB_NAME = os.environ.get('DB_NAME', 'financial_planning_data_staging')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_planning_data_staging')
     
     # Production-like settings but with more logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG')
@@ -475,10 +420,7 @@ class StagingConfig(Config):
     FLASK_ENV = 'staging'
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', 0))
-    FINANCIAL_PLANNING_API_BASE_URL = os.environ.get(
-        'FINANCIAL_PLANNING_API_BASE_URL',
-        'https://staging-api.financial-planning.com'
-    )
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
 
 
 class ProductionConfig(Config):
@@ -487,7 +429,7 @@ class ProductionConfig(Config):
     TESTING = False
     
     # Production database
-    DB_NAME = os.environ.get('DB_NAME', 'financial_planning_data')
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_planning_data')
     
     # Strict production settings
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
@@ -509,10 +451,7 @@ class ProductionConfig(Config):
     FLASK_ENV = 'production'
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '0'))
-    FINANCIAL_PLANNING_API_BASE_URL = os.environ.get(
-        'FINANCIAL_PLANNING_API_BASE_URL',
-        'https://api.financial-planning.com'
-    )
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
     
     @classmethod
     def validate_production_config(cls):

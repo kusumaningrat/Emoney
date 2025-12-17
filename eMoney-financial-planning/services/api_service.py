@@ -9,7 +9,7 @@ from config import get_config
 
 class APIService:
     """
-    Service for interacting with eMoney Advisor API
+    Service for interacting with eMoney Planning API
     Handles data retrieval for financial planning objects:
     Plan, Goal, Scenario, CashFlow, NetWorth
     """
@@ -21,19 +21,19 @@ class APIService:
         self.config = get_config()
         self.access_token = None
 
-        # eMoney API endpoints for financial planning
-        self.EMONEY_PLANS_ENDPOINT = "/plans"
-        self.EMONEY_GOALS_ENDPOINT = "/goals"
-        self.EMONEY_SCENARIOS_ENDPOINT = "/scenarios"
-        self.EMONEY_CASHFLOW_ENDPOINT = "/cashflow"
-        self.EMONEY_NETWORTH_ENDPOINT = "/networth"
+        # eMoney Planning API endpoints from config
+        self.EMONEY_PLANS_ENDPOINT = self.config.EMONEY_PLANS_ENDPOINT
+        self.EMONEY_GOALS_ENDPOINT = self.config.EMONEY_GOALS_ENDPOINT
+        self.EMONEY_SCENARIOS_ENDPOINT = self.config.EMONEY_SCENARIOS_ENDPOINT
+        self.EMONEY_CASHFLOW_ENDPOINT = self.config.EMONEY_CASHFLOW_ENDPOINT
+        self.EMONEY_NETWORTH_ENDPOINT = self.config.EMONEY_NETWORTH_ENDPOINT
 
-        # Default headers for eMoney API
+        # Default headers for eMoney Planning API
         self.session.headers.update(
             {
                 "Content-Type": "application/json",
                 "Accept": "application/json",
-                "User-Agent": "eMoney-Client/1.0",
+                "User-Agent": "eMoney-Planning/1.0",
             }
         )
 
@@ -42,7 +42,7 @@ class APIService:
     # ---------------------------
     def authenticate(self, auth_config: Dict[str, Any] = None) -> str:
         """
-        Authenticate with eMoney API
+        Authenticate with eMoney Planning API
 
         Args:
             auth_config: Optional authentication config (not used for mock server)
@@ -51,7 +51,7 @@ class APIService:
             Access token (can be any string for mock server)
         """
         try:
-            self.logger.info("Authenticating with eMoney API")
+            self.logger.info("Authenticating with eMoney Planning API")
 
             # For the mock server, the token can be anything
             self.access_token = "anything"
@@ -67,7 +67,6 @@ class APIService:
         except Exception as e:
             self.logger.error(f"Authentication failed: {str(e)}")
             raise
-            
 
     # ---------------------------
     # REQUEST HANDLER
@@ -80,9 +79,12 @@ class APIService:
 
         # Ensure we have an authentication token
         if not self.access_token:
+            self.logger.info("No access token found, authenticating...")
             self.authenticate()
 
-        self.logger.info(f"Making {method} request to {url} with params: {params}")
+        self.logger.info(f"Making {method} request to: {url}")
+        self.logger.info(f"Request params: {params}")
+        self.logger.info(f"Authorization header present: {'Authorization' in self.session.headers}")
 
         for attempt in range(max_retries):
             try:
@@ -92,6 +94,9 @@ class APIService:
                     raise ValueError(f"Unsupported HTTP method: {method}")
 
                 self.logger.info(f"Response status code: {response.status_code}")
+                self.logger.debug(f"Response headers: {dict(response.headers)}")
+                self.logger.debug(f"Response content length: {len(response.content)}")
+                self.logger.debug(f"Response text preview: {response.text[:200] if response.text else 'EMPTY'}")
 
                 if response.status_code == 429:
                     retry_after = int(response.headers.get("Retry-After", 60))
@@ -108,7 +113,18 @@ class APIService:
                     continue
 
                 response.raise_for_status()
-                return response.json()
+                
+                # Check if response has content before parsing JSON
+                if not response.content:
+                    self.logger.warning("Empty response received from API")
+                    return {}
+                    
+                try:
+                    return response.json()
+                except ValueError as json_err:
+                    self.logger.error(f"Failed to parse JSON response: {json_err}")
+                    self.logger.error(f"Response content: {response.text[:500]}")
+                    raise
 
             except requests.exceptions.HTTPError as e:
                 self.logger.error(f"HTTP error: {str(e)}")
@@ -131,7 +147,6 @@ class APIService:
 
         raise Exception(f"Failed to complete request after {max_retries} attempts")
 
-
     # ---------------------------
     # PLAN OBJECTS (eMoney API pagination uses page & pageSize)
     # ---------------------------
@@ -144,7 +159,7 @@ class APIService:
         include_goals: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get financial plan records from eMoney API
+        Get financial plan records from eMoney Planning API
         
         Endpoint: GET /plans
         
@@ -218,38 +233,6 @@ class APIService:
             
         return self._make_request(endpoint, params)
 
-    def get_client_plans(
-        self,
-        client_id: str,
-        page: int = 1,
-        page_size: int = 100,
-        include_scenarios: bool = False,
-    ) -> Dict[str, Any]:
-        """
-        Get all plans for a specific client
-        
-        Endpoint: GET /clients/{clientId}/plans
-        
-        Args:
-            client_id: Client ID
-            page: Page number
-            page_size: Results per page
-            include_scenarios: Include scenario data
-
-        Returns:
-            Dict with client's plan records
-        """
-        endpoint = f"/clients/{client_id}/plans"
-        params = {"page": page, "pageSize": min(page_size, 100)}
-        
-        if include_scenarios:
-            params["include"] = "scenarios"
-            
-        return self._make_request(endpoint, params)
-
-    # ---------------------------
-    # GOAL OBJECTS
-    # ---------------------------
     def get_goals(
         self,
         page: int = 1,
@@ -257,13 +240,13 @@ class APIService:
         filters: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
-        Get goal records from eMoney API
+        Get goal records from eMoney Planning API
         
         Endpoint: GET /goals
         
         Args:
             page: Page number to retrieve (pagination)
-            page_size: Maximum number of records per page
+            page_size: Maximum number of records per page (max 100)
             filters: Additional filters (goal_type, status, plan_id, etc.)
 
         Returns:
@@ -292,38 +275,6 @@ class APIService:
         endpoint = f"{self.EMONEY_GOALS_ENDPOINT}/{goal_id}"
         return self._make_request(endpoint)
 
-    def get_plan_goals(
-        self,
-        plan_id: str,
-        page: int = 1,
-        page_size: int = 100,
-        filters: Dict[str, Any] = None,
-    ) -> Dict[str, Any]:
-        """
-        Get all goals for a specific plan
-        
-        Endpoint: GET /plans/{planId}/goals
-        
-        Args:
-            plan_id: Plan ID
-            page: Page number
-            page_size: Results per page
-            filters: Additional filters (goal_type, status, etc.)
-
-        Returns:
-            Dict with plan's goal records
-        """
-        endpoint = f"{self.EMONEY_PLANS_ENDPOINT}/{plan_id}/goals"
-        params = {"page": page, "pageSize": min(page_size, 100)}
-        
-        if filters:
-            params.update(filters)
-            
-        return self._make_request(endpoint, params)
-
-    # ---------------------------
-    # SCENARIO OBJECTS
-    # ---------------------------
     def get_scenarios(
         self,
         page: int = 1,
@@ -331,13 +282,13 @@ class APIService:
         filters: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
-        Get scenario records from eMoney API
+        Get scenario records from eMoney Planning API
         
         Endpoint: GET /scenarios
         
         Args:
             page: Page number to retrieve (pagination)
-            page_size: Maximum number of records per page
+            page_size: Maximum number of records per page (max 100)
             filters: Additional filters (plan_id, scenario_type, etc.)
 
         Returns:
@@ -385,33 +336,6 @@ class APIService:
             
         return self._make_request(endpoint, params)
 
-    def get_plan_scenarios(
-        self,
-        plan_id: str,
-        page: int = 1,
-        page_size: int = 100,
-    ) -> Dict[str, Any]:
-        """
-        Get all scenarios for a specific plan
-        
-        Endpoint: GET /plans/{planId}/scenarios
-        
-        Args:
-            plan_id: Plan ID
-            page: Page number
-            page_size: Results per page
-
-        Returns:
-            Dict with plan's scenario records
-        """
-        endpoint = f"{self.EMONEY_PLANS_ENDPOINT}/{plan_id}/scenarios"
-        params = {"page": page, "pageSize": min(page_size, 100)}
-        
-        return self._make_request(endpoint, params)
-
-    # ---------------------------
-    # CASHFLOW OBJECTS
-    # ---------------------------
     def get_cashflow(
         self,
         scenario_id: str,
@@ -445,42 +369,6 @@ class APIService:
             
         return self._make_request(endpoint, params)
 
-    def get_plan_cashflow(
-        self,
-        plan_id: str,
-        scenario_id: Optional[str] = None,
-        start_year: Optional[int] = None,
-        end_year: Optional[int] = None,
-    ) -> Dict[str, Any]:
-        """
-        Get cash flow projections for a plan
-        
-        Endpoint: GET /plans/{planId}/cashflow
-        
-        Args:
-            plan_id: Plan ID
-            scenario_id: Optional specific scenario ID
-            start_year: Starting year for projections
-            end_year: Ending year for projections
-
-        Returns:
-            Cash flow projection data
-        """
-        endpoint = f"{self.EMONEY_PLANS_ENDPOINT}/{plan_id}/cashflow"
-        params = {}
-        
-        if scenario_id:
-            params["scenarioId"] = scenario_id
-        if start_year:
-            params["startYear"] = start_year
-        if end_year:
-            params["endYear"] = end_year
-            
-        return self._make_request(endpoint, params)
-
-    # ---------------------------
-    # NETWORTH OBJECTS
-    # ---------------------------
     def get_networth(
         self,
         scenario_id: str,
@@ -521,67 +409,5 @@ class APIService:
             
         if include_parts:
             params["include"] = ",".join(include_parts)
-            
-        return self._make_request(endpoint, params)
-
-    def get_plan_networth(
-        self,
-        plan_id: str,
-        scenario_id: Optional[str] = None,
-        start_year: Optional[int] = None,
-        end_year: Optional[int] = None,
-        include_assets: bool = False,
-    ) -> Dict[str, Any]:
-        """
-        Get net worth projections for a plan
-        
-        Endpoint: GET /plans/{planId}/networth
-        
-        Args:
-            plan_id: Plan ID
-            scenario_id: Optional specific scenario ID
-            start_year: Starting year for projections
-            end_year: Ending year for projections
-            include_assets: Include detailed asset breakdown
-
-        Returns:
-            Net worth projection data
-        """
-        endpoint = f"{self.EMONEY_PLANS_ENDPOINT}/{plan_id}/networth"
-        params = {}
-        
-        if scenario_id:
-            params["scenarioId"] = scenario_id
-        if start_year:
-            params["startYear"] = start_year
-        if end_year:
-            params["endYear"] = end_year
-        if include_assets:
-            params["include"] = "assets"
-            
-        return self._make_request(endpoint, params)
-
-    def get_current_networth(
-        self,
-        client_id: str,
-        include_breakdown: bool = True,
-    ) -> Dict[str, Any]:
-        """
-        Get current net worth for a client
-        
-        Endpoint: GET /clients/{clientId}/networth/current
-        
-        Args:
-            client_id: Client ID
-            include_breakdown: Include asset/liability breakdown
-
-        Returns:
-            Current net worth data
-        """
-        endpoint = f"/clients/{client_id}/networth/current"
-        params = {}
-        
-        if include_breakdown:
-            params["include"] = "breakdown"
             
         return self._make_request(endpoint, params)

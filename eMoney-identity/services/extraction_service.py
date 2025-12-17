@@ -29,6 +29,7 @@ class ExtractionService:
     def __init__(self, config: Dict[str, Any], source_type: str = "emoney_identity"):
         self.config = config
         self.source_type = source_type
+        self.config['service_type'] = source_type
         self.job_service = JobService()
         self.logger = get_logger(__name__)
 
@@ -366,7 +367,8 @@ class ExtractionService:
                 },
             )
 
-            run_pipeline_with_organization_lock(
+            # FIXED: Capture load_info from pipeline execution
+            load_info = run_pipeline_with_organization_lock(
                 pipeline=pipeline,
                 source_functions=source_functions,
                 organization_id=job["organizationId"]
@@ -416,12 +418,95 @@ class ExtractionService:
                     self.job_service.update_job_status(job_id, JobStatus.PAUSED)
                     return
 
-            # Get final record count
-            records_extracted = (
-                latest_checkpoint.get("records_processed", 0)
-                if latest_checkpoint
-                else 0
-            )
+            # FIXED: Get actual record count from DLT load info or database
+            records_extracted = 0
+            try:
+                # Method 1: Try to get from DLT load_info
+                if load_info and hasattr(load_info, 'load_packages'):
+                    for load_package in load_info.load_packages:
+                        if hasattr(load_package, 'jobs') and load_package.jobs:
+                            for job_info in load_package.jobs:
+                                if hasattr(job_info, 'metrics') and job_info.metrics:
+                                    records_extracted += job_info.metrics.get('items_count', 0)
+                
+                # Method 2: Try alternate load_info structure
+                if records_extracted == 0 and load_info:
+                    if hasattr(load_info, 'metrics'):
+                        records_extracted = load_info.metrics.get('items_count', 0)
+                
+                # Method 3: Count from database directly (most reliable)
+                if records_extracted == 0:
+                    try:
+                        dataset_name = pipeline.dataset_name
+                        job_config = job["config"] or {}
+                        entity_types = job_config.get("type", [])
+                        if not isinstance(entity_types, list):
+                            entity_types = [entity_types]
+                        
+                        # Use pipeline's SQL client to count records
+                        with pipeline.sql_client() as client:
+                            for entity_type in entity_types:
+                                table_name = entity_type.lower()
+                                count_query = f"""
+                                    SELECT COUNT(*) as count 
+                                    FROM "{dataset_name}"."{table_name}" 
+                                    WHERE _scan_id = '{job_id}'
+                                """
+                                
+                                result = client.execute_sql(count_query)
+                                if hasattr(result, 'fetchone'):
+                                    count_row = result.fetchone()
+                                    if count_row:
+                                        records_extracted += count_row[0]
+                                else:
+                                    result_list = list(result)
+                                    if result_list:
+                                        records_extracted += result_list[0][0]
+                        
+                        self.logger.info(
+                            "Counted records from database",
+                            extra={
+                                "operation": "execute_scan",
+                                "job_id": job_id,
+                                "records_extracted": records_extracted,
+                                "tables_checked": len(entity_types)
+                            }
+                        )
+                    except Exception as db_error:
+                        self.logger.warning(
+                            "Database count failed",
+                            extra={
+                                "operation": "execute_scan",
+                                "job_id": job_id,
+                                "error": str(db_error)
+                            }
+                        )
+                
+                self.logger.info(
+                    "Records extraction count determined",
+                    extra={
+                        "operation": "execute_scan",
+                        "job_id": job_id,
+                        "records_extracted": records_extracted,
+                        "load_info_available": load_info is not None
+                    }
+                )
+                
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to extract record count, using checkpoint fallback",
+                    extra={
+                        "operation": "execute_scan",
+                        "job_id": job_id,
+                        "error": str(e)
+                    }
+                )
+                # Ultimate fallback: use checkpoint
+                records_extracted = (
+                    latest_checkpoint.get("records_processed", 0)
+                    if latest_checkpoint
+                    else 0
+                )
 
             # Build completion metadata
             metadata = {

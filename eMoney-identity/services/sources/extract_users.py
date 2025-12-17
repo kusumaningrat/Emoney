@@ -18,7 +18,7 @@ def extract_users(
     """
     Extract User records from eMoney Identity API
 
-    Yields user records with normalized field names,
+    Yields user records with original API field names preserved,
     with extraction metadata added.
 
     Args:
@@ -132,7 +132,7 @@ def extract_users(
         try:
             logger.info(f"Fetching users (page: {page}, limit: {limit}) - batch {batch_counter}/{USER_MAX_BATCHES}...")
 
-            response = api_service.get_users(page=page, limit=limit)
+            response = api_service.get_users(page=page, page_size=limit)
 
             # Handle different response formats
             if isinstance(response, dict):
@@ -172,18 +172,25 @@ def extract_users(
                         return
                     
                 try:
-                    # Handle eMoney User format (flat JSON structure from API)
+                    # Preserve original API field names (capital case from eMoney API)
+                    # Add validation to ensure UserID exists
+                    user_id = user.get("UserID") or user.get("id")
+                    if not user_id:
+                        logger.warning(f"Skipping user record without UserID: {user}")
+                        continue
+                    
+                    # Create record with original API field names
                     user_record = {
-                        "id": user.get("UserID") or user.get("id"),
-                        "username": user.get("Username") or user.get("username"),
-                        "email": user.get("Email") or user.get("email"),
-                        "first_name": user.get("FirstName") or user.get("firstName"),
-                        "last_name": user.get("LastName") or user.get("lastName"),
-                        "status": user.get("Status") or user.get("status"),
-                        "office_id": user.get("OfficeID") or user.get("officeId"),
-                        "created_date": user.get("CreatedDate") or user.get("createdDate"),
-                        "modified_date": user.get("ModifiedDate") or user.get("modifiedDate"),
-                        "last_login_date": user.get("LastLoginDate") or user.get("lastLoginDate"),
+                        "UserID": user_id,
+                        "Username": user.get("Username"),
+                        "Email": user.get("Email"),
+                        "FirstName": user.get("FirstName"),
+                        "LastName": user.get("LastName"),
+                        "Status": user.get("Status"),
+                        "OfficeID": user.get("OfficeID"),
+                        "CreatedDate": user.get("CreatedDate"),
+                        "ModifiedDate": user.get("ModifiedDate"),
+                        "LastLoginDate": user.get("LastLoginDate"),
                     }
 
                     # Add extraction metadata

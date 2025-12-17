@@ -4,37 +4,37 @@ from typing import Dict, Any, Optional, List
 from app.connectors.api_connector import SimpleAPIConnector
 from app.core.exceptions import ServiceConnectionError
 from app.settings import get_settings
-from app.service_config import STANDARD_ENDPOINTS, WEALTHBOX_SERVICES, DEFAULT_SCAN_CONFIG
+from app.service_config import STANDARD_ENDPOINTS, EMONEY_SERVICES, DEFAULT_SCAN_CONFIG
 
 logger = logging.getLogger(__name__)
 
-class WealthboxActivityConnector:
+class EMoneyAccountConnector:
     """
-    Connector for Wealthbox Activity Service data extraction operations.
-    Handles activity entity scanning and data extraction for tasks, events,
-    notes, projects, and workflows.
+    Connector for EMoney Account Service data extraction operations.
+    Handles account entity scanning and data extraction for accounts, account types,
+    assets, asset classes, and liabilities.
     """
     
     # Supported specific entity types for this service
-    SUPPORTED_ENTITY_TYPES = ["task", "event", "note", "project", "workflow"]
+    SUPPORTED_ENTITY_TYPES = ["account", "accounttype", "asset", "assetclass", "liability"]
     
     def __init__(self, api_key: Optional[str] = None, timeout: float = 5.0):
         """
-        Initialize the Activity connector with configuration from settings.
+        Initialize the Account connector with configuration from settings.
         
         Args:
             api_key: Optional API key override (defaults to settings)
             timeout: Request timeout in seconds
         """
         settings = get_settings()
-        self.service_key = "activity"
+        self.service_key = "account"
         self.service_url = settings.get_service_url(self.service_key)
         
         if not self.service_url:
             logger.error(f"No URL configured for {self.service_key} service in {settings.ENVIRONMENT} environment")
         
         # Get the endpoints for this service
-        self.service_config = WEALTHBOX_SERVICES.get(self.service_key, {})
+        self.service_config = EMONEY_SERVICES.get(self.service_key, {})
         self.endpoints = self.service_config.get("endpoints", STANDARD_ENDPOINTS.copy())
         
         self.api_key = api_key or settings.API_KEY
@@ -44,7 +44,7 @@ class WealthboxActivityConnector:
             timeout=timeout
         )
         
-        logger.info(f"Initialized WealthboxActivityConnector for {self.service_url}")
+        logger.info(f"Initialized EMoneyAccountConnector for {self.service_url}")
     
     def _get_endpoint_path(self, endpoint_key: str, **path_params) -> str:
         """
@@ -73,7 +73,7 @@ class WealthboxActivityConnector:
     
     async def health_check(self) -> Dict[str, Any]:
         """
-        Check if the Activity service is healthy.
+        Check if the Account service is healthy.
         
         Returns:
             Dict[str, Any]: Health status response
@@ -82,8 +82,8 @@ class WealthboxActivityConnector:
             path = self._get_endpoint_path("health")
             return await self.connector.get(path)
         except Exception as e:
-            logger.error(f"Activity service health check failed: {str(e)}")
-            raise ServiceConnectionError(f"Activity service unavailable: {str(e)}")
+            logger.error(f"Account service health check failed: {str(e)}")
+            raise ServiceConnectionError(f"Account service unavailable: {str(e)}")
     
     async def get_stats(self) -> Dict[str, Any]:
         """
@@ -96,37 +96,39 @@ class WealthboxActivityConnector:
             path = self._get_endpoint_path("stats")
             return await self.connector.get(path)
         except Exception as e:
-            logger.error(f"Failed to get activity service stats: {str(e)}")
+            logger.error(f"Failed to get account service stats: {str(e)}")
             raise ServiceConnectionError(f"Stats retrieval failed: {str(e)}")
     
     async def start_scan(self, scan_config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Start a data extraction scan for activity entities with Wealthbox OAuth support.
+        Start a data extraction scan for account entities with EMoney JWT authentication.
         
         Expected input format (orchestrator):
         {
             "config": {
-                "scanId": "wealthbox-activity-scan-2025-001",
+                "scanId": "emoney-account-scan-2025-00188",
                 "organizationId": "org-12345",
-                "type": ["task", "event", "note", "project", "workflow"],
+                "type": ["account", "accounttype", "asset", "assetclass", "liability"],
                 "auth": {
-                    "client_id": "wealthbox-client-123456789",
-                    "client_secret": "c1ient-s3cret-v4lue-example",
-                    "grant_type": "client_credentials",
-                    "scope": "read"
+                    "api_key": "emoney-api-key-67890",
+                    "client_id": "emoney-client-id-12345",
+                    "firm_id": "firm-12345",
+                    "jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "scope": "API"
                 },
                 "filters": {
                     "dateRange": {
                         "startDate": "2025-01-01",
                         "endDate": "2025-12-31"
                     },
-                    "batchSize": 100
+                    "batchSize": 100,
+                    "includeInactive": false
                 }
             }
         }
         
-        For mock servers, we pass through the OAuth credentials as-is.
-        The mock server will validate and handle them directly.
+        For EMoney servers, we pass through the JWT authentication as-is.
+        The EMoney server will validate and handle them directly.
         
         Args:
             scan_config: Scan configuration with structure shown above
@@ -146,7 +148,7 @@ class WealthboxActivityConnector:
             # Ensure required fields exist
             config = scan_config["config"]
             if "organizationId" not in config:
-                config["organizationId"] = ""
+                config["organizationId"] = "org-12345"
                 
             # Handle type field - ensure it's a list
             if "type" not in config or not config["type"]:
@@ -157,14 +159,14 @@ class WealthboxActivityConnector:
                 config["type"] = [config["type"]]
                     
             # Normalize and expand entity types
-            # The generic "activity" type should be expanded to all specific types
+            # The generic "account" type should be expanded to all specific types
             expanded_types = []
             for entity_type in config["type"]:
                 entity_type_lower = entity_type.lower() if isinstance(entity_type, str) else entity_type
                 
-                # If the generic "activity" type is requested, expand to all specific types
-                if entity_type_lower == "activity":
-                    logger.info(f"Expanding generic 'activity' type to specific types: {self.SUPPORTED_ENTITY_TYPES}")
+                # If the generic "account" type is requested, expand to all specific types
+                if entity_type_lower == "account" and len(config["type"]) == 1:
+                    logger.info(f"Expanding generic 'account' type to specific types: {self.SUPPORTED_ENTITY_TYPES}")
                     expanded_types.extend(self.SUPPORTED_ENTITY_TYPES)
                 else:
                     # Keep specific types as-is
@@ -174,23 +176,38 @@ class WealthboxActivityConnector:
             config["type"] = list(dict.fromkeys(expanded_types))
             logger.debug(f"Final entity types after expansion: {config['type']}")
             
-            # FIXED: Pass through OAuth credentials directly to mock server
-            # The mock server expects and validates OAuth credentials, not access tokens
+            # Handle EMoney JWT authentication
             if "auth" in config:
                 auth_config = config["auth"]
                 
-                # Check if OAuth credentials are provided
-                if all(k in auth_config for k in ["client_id", "client_secret"]):
-                    logger.info("OAuth credentials detected, passing through to mock server for validation")
-                    # Keep the original OAuth credentials - don't transform them
-                    # The mock server will handle validation
+                # Check if JWT credentials are provided
+                if "jwt_token" in auth_config and "client_id" in auth_config:
+                    logger.info("EMoney JWT credentials detected, passing through to server for validation")
+                    # Keep the original JWT credentials - don't transform them
+                    # The EMoney server will handle validation
                 elif "accessToken" in auth_config:
                     # If somehow an access token is already present, that's fine too
                     logger.info("Access token already present in config")
                 else:
-                    logger.warning("Auth config present but missing required fields")
+                    logger.warning("Auth config present but missing required EMoney JWT fields")
+                    # Set default EMoney auth structure
+                    config["auth"] = {
+                        "api_key": "emoney-api-key-67890",
+                        "client_id": "emoney-client-id-12345",
+                        "firm_id": "firm-12345",
+                        "jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "scope": "API"
+                    }
             else:
                 logger.warning("No auth configuration provided in scan config")
+                # Set default EMoney auth structure
+                config["auth"] = {
+                    "api_key": "emoney-api-key-67890",
+                    "client_id": "emoney-client-id-12345",
+                    "firm_id": "firm-12345",
+                    "jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "scope": "API"
+                }
                 
             # Ensure filters exist with proper structure
             if "filters" not in config:
@@ -227,21 +244,20 @@ class WealthboxActivityConnector:
                     except Exception as date_error:
                         logger.warning(f"Could not validate date range: {date_error}")
             
-            # FIXED: Remove fields that the mock server doesn't recognize
-            # Remove batchSize from filters
-            batch_size = config["filters"].pop("batchSize", None)
-            if batch_size:
-                logger.debug(f"Removed batchSize ({batch_size}) from filters (not supported by mock server)")
+            # Handle EMoney-specific filter fields
+            # Keep batchSize as EMoney supports it
+            batch_size = config["filters"].get("batchSize", 100)
+            config["filters"]["batchSize"] = batch_size
             
-            # Remove includeArchived from filters if present
-            include_archived = config["filters"].pop("includeArchived", None)
-            if include_archived is not None:
-                logger.debug(f"Removed includeArchived ({include_archived}) from filters (not supported by mock server)")
+            # Handle includeInactive for EMoney account service
+            include_inactive = config["filters"].get("includeInactive", False)
+            config["filters"]["includeInactive"] = include_inactive
+            logger.debug(f"EMoney account filters - batchSize: {batch_size}, includeInactive: {include_inactive}")
                 
             # Generate a scanId if not provided
             if "scanId" not in config:
                 import uuid
-                config["scanId"] = f"wealthbox-{self.service_key}-scan-{str(uuid.uuid4())[:8]}"
+                config["scanId"] = f"emoney-{self.service_key}-scan-2025-{str(uuid.uuid4())[:5]}"
                 
             logger.info(f"Starting {self.service_key} scan with ID {config.get('scanId')}")
             logger.debug(f"Scan config being sent: {json.dumps(scan_config, indent=2)}")

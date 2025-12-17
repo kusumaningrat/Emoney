@@ -6,12 +6,12 @@ import asyncio
 from app.db.repositories.scan_repository import ScanRepository
 from app.db.models import ScanStatus
 from app.services.scan_status_service import ScanStatusService
-from app.service_config import WEALTHBOX_SERVICES
+from app.service_config import EMONEY_SERVICES
 
 logger = logging.getLogger(__name__)
 
 class ScanService:
-    """Service for scan operations"""
+    """Service for EMoney scan operations"""
     
     def __init__(self, scan_repository: ScanRepository):
         self.scan_repository = scan_repository
@@ -19,68 +19,66 @@ class ScanService:
         self.status_service = ScanStatusService(scan_repository)
     
     def _init_connectors(self):
-        """Initialize connectors for different service types"""
-        from app.connectors.client_connector import WealthboxClientConnector
-        from app.connectors.opportunity_connector import WealthboxOpportunityConnector
-        from app.connectors.identity_connector import WealthboxIdentityConnector
-        from app.connectors.activity_connector import WealthboxActivityConnector
-        from app.connectors.auth_connector import WealthboxAuthConnector
+        """Initialize connectors for different EMoney service types"""
+        from app.connectors.emoney_account_connector import EMoneyAccountConnector
+        from app.connectors.emoney_client_connector import EMoneyClientConnector
+        from app.connectors.emoney_financial_planning_connector import EMoneyFinancialPlanningConnector
+        from app.connectors.emoney_identity_connector import EMoneyIdentityConnector
 
-        # Initialize all connectors
+        # Initialize all EMoney connectors
         self.connectors = {
-            "client": WealthboxClientConnector(),
-            "opportunity": WealthboxOpportunityConnector(),
-            "identity": WealthboxIdentityConnector(),
-            "activity": WealthboxActivityConnector(),
-            "auth": WealthboxAuthConnector()
+            "account": EMoneyAccountConnector(),
+            "client": EMoneyClientConnector(),
+            "financial_planning": EMoneyFinancialPlanningConnector(),
+            "identity": EMoneyIdentityConnector()
         }
     
     def _get_connector(self, scan_type: str):
-        """Get the appropriate connector for the scan type"""
+        """Get the appropriate connector for the EMoney scan type"""
         connector = self.connectors.get(scan_type)
         if not connector:
-            raise ValueError(f"No connector available for scan type: {scan_type}")
+            raise ValueError(f"No connector available for EMoney scan type: {scan_type}")
         return connector
     
     def _validate_entity_types(self, scan_type: str, entity_types: List[str]) -> List[str]:
         """
-        Validate entity types against available types for the service.
+        Validate entity types against available types for the EMoney service.
         Filters out any entity types that don't exist.
         
         Args:
-            scan_type: Type of scan (client, opportunity, identity, activity, auth)
+            scan_type: Type of scan (account, client, financial_planning, identity)
             entity_types: List of entity types to validate
             
         Returns:
             List[str]: List of valid entity types
         """
-        # Get the service configuration
-        service_config = WEALTHBOX_SERVICES.get(scan_type)
+        # Get the EMoney service configuration
+        service_config = EMONEY_SERVICES.get(scan_type)
         if not service_config:
-            raise ValueError(f"Invalid scan type: {scan_type}")
+            raise ValueError(f"Invalid EMoney scan type: {scan_type}")
             
-        # Get available entity types for this service
-        available_types = service_config.get("entity_types", [])
+        # Get available entity types for this EMoney service
+        available_types = [et.lower() for et in service_config.get("entity_types", [])]
         
-        # Filter to include only valid entity types
-        valid_types = [et for et in entity_types if et in available_types]
+        # Filter to include only valid entity types (case insensitive)
+        valid_types = [et.lower() for et in entity_types if et.lower() in available_types]
         
         # Log any invalid types that were removed
-        invalid_types = [et for et in entity_types if et not in available_types]
+        invalid_types = [et for et in entity_types if et.lower() not in available_types]
         if invalid_types:
-            logger.warning(f"Removed invalid entity types for {scan_type} service: {invalid_types}")
+            logger.warning(f"Removed invalid entity types for {scan_type} EMoney service: {invalid_types}")
             
         if not valid_types:
-            raise ValueError(f"No valid entity types provided for {scan_type} service. Available types: {available_types}")
+            raise ValueError(f"No valid entity types provided for {scan_type} EMoney service. Available types: {available_types}")
             
         return valid_types
     
     async def start_scan(self, scan_request: Dict[str, Any], scan_type: Optional[str] = None) -> Dict[str, Any]:
         """
-        Start a new scan for specified service with separate API calls for each entity type.
+        Start a new EMoney scan for specified service with separate API calls for each entity type.
         
         Args:
-            scan_request: Scan configuration with scan_type and entity_types
+            scan_request: EMoney scan configuration with scan_type and entity_types
             scan_type: Optional override for scan type (if not provided in request)
             
         Returns:
@@ -104,16 +102,16 @@ class ScanService:
         # Get organization ID
         organization_id = scan_request.get("organizationId")
         
-        # Get auth and filters
+        # Get EMoney auth and filters
         auth = scan_request.get("auth", {})
         filters = scan_request.get("filters", {})
         
-        # Validate scan type and get connector
+        # Validate scan type and get EMoney connector
         try:
             connector = self._get_connector(scan_type)
-            logger.debug(f"Using connector {connector.__class__.__name__} for scan type {scan_type}")
+            logger.debug(f"Using EMoney connector {connector.__class__.__name__} for scan type {scan_type}")
         except ValueError as e:
-            raise ValueError(f"Invalid scan type: {scan_type}. {str(e)}")
+            raise ValueError(f"Invalid EMoney scan type: {scan_type}. {str(e)}")
         
         # Create scan in database
         scan, entity_results = await self.scan_repository.create(
@@ -123,17 +121,17 @@ class ScanService:
             scan_config=scan_request
         )
         
-        logger.info(f"Scan created with ID {scan.id}, with {len(entity_results)} entity results")
+        logger.info(f"EMoney scan created with ID {scan.id}, with {len(entity_results)} entity results")
         
         try:
             # Update scan status to RUNNING
             scan = await self.scan_repository.update_status(scan.id, ScanStatus.RUNNING)
             
-            logger.info(f"Starting {scan_type} scan with ID {scan.id} for entity types: {valid_entity_types}")
+            logger.info(f"Starting EMoney {scan_type} scan with ID {scan.id} for entity types: {valid_entity_types}")
             
             # Start a scan for each entity type separately using the entity result IDs
             for entity_result in entity_results:
-                # Create a config for this entity type in the format expected by the connector
+                # Create a config for this entity type in the format expected by EMoney connector
                 entity_scan_config = {
                     "config": {     
                         "scanId": entity_result.id,  # Use the entity result ID from the database
@@ -144,16 +142,16 @@ class ScanService:
                     }
                 }
                 
-                logger.info(f"Starting {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
-                logger.info(f"Entity scan config: {entity_scan_config}")
+                logger.info(f"Starting EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
+                logger.info(f"EMoney entity scan config: {entity_scan_config}")
 
                 try:
-                    # Make the API call for this entity type using the appropriate connector
+                    # Make the API call for this entity type using the appropriate EMoney connector
                     response = await connector.start_scan(entity_scan_config)
-                    logger.info(f"Connector response for {entity_result.entity_type}: {response}")
+                    logger.info(f"EMoney connector response for {entity_result.entity_type}: {response}")
                     await asyncio.sleep(5)
                 except Exception as e:
-                    logger.error(f"Error starting scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
+                    logger.error(f"Error starting EMoney scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                     continue
                 
                 # Update the entity result status
@@ -164,9 +162,9 @@ class ScanService:
                 try:
                     # Start polling for THIS entity result
                     await self.status_service.start_entity_polling(entity_result, scan_type)
-                    logger.info(f"Started polling for entity result {entity_result.id}")
+                    logger.info(f"Started polling for EMoney entity result {entity_result.id}")
                 except Exception as e:
-                    logger.error(f"Error starting polling for entity result {entity_result.id}: {str(e)}", exc_info=True)
+                    logger.error(f"Error starting polling for EMoney entity result {entity_result.id}: {str(e)}", exc_info=True)
             
             # Commit the changes to entity results
             await self.scan_repository.session.commit()
@@ -184,12 +182,12 @@ class ScanService:
         except Exception as e:
             # Update scan status to FAILED in case of error
             await self.scan_repository.update_status(scan.id, ScanStatus.FAILED)
-            logger.error(f"Failed to start {scan_type} scan: {str(e)}", exc_info=True)
+            logger.error(f"Failed to start EMoney {scan_type} scan: {str(e)}", exc_info=True)
             raise
     
     async def get_scan_status(self, scan_id: str) -> Dict[str, Any]:
         """
-        Get the status of a scan with entity results.
+        Get the status of an EMoney scan with entity results.
         
         Args:
             scan_id: ID of the scan
@@ -200,7 +198,7 @@ class ScanService:
         # Get the scan
         scan = await self.scan_repository.get_by_id(scan_id)
         if not scan:
-            raise ValueError(f"Scan with ID {scan_id} not found")
+            raise ValueError(f"EMoney scan with ID {scan_id} not found")
         
         # Get entity results
         entity_results = await self.scan_repository.get_entity_results(scan_id)
@@ -241,17 +239,17 @@ class ScanService:
                          page: int = 1,
                          limit: int = 20) -> Dict[str, Any]:
         """
-        List scans with filtering and pagination.
+        List EMoney scans with filtering and pagination.
         
         Args:
-            scan_type: Filter by scan type (optional)
+            scan_type: Filter by EMoney scan type (optional)
             scan_status: Filter by scan status (optional)
             organization_id: Filter by organization ID (optional)
             page: Page number for pagination
             limit: Items per page
             
         Returns:
-            Dict[str, Any]: Paginated list of scans
+            Dict[str, Any]: Paginated list of EMoney scans
         """
         # Calculate offset for pagination
         offset = (page - 1) * limit
@@ -299,7 +297,7 @@ class ScanService:
 
     async def cancel_scan(self, scan_id: str) -> Dict[str, Any]:
         """
-        Cancel a running or paused scan.
+        Cancel a running or paused EMoney scan.
         
         Args:
             scan_id: ID of the scan to cancel
@@ -310,20 +308,20 @@ class ScanService:
         # Get the scan
         scan = await self.scan_repository.get_by_id(scan_id)
         if not scan:
-            raise ValueError(f"Scan with ID {scan_id} not found")
+            raise ValueError(f"EMoney scan with ID {scan_id} not found")
         
         # Check if scan is in a cancellable state
         if scan.status not in [ScanStatus.RUNNING, ScanStatus.PAUSED, ScanStatus.PENDING]:
-            raise ValueError(f"Cannot cancel scan with status {scan.status.value}. Only running, paused, or pending scans can be cancelled.")
+            raise ValueError(f"Cannot cancel EMoney scan with status {scan.status.value}. Only running, paused, or pending scans can be cancelled.")
         
         # Get scan type and entity results
         scan_type = scan.scan_type
         entity_results = await self.scan_repository.get_entity_results(scan_id)
         
         try:
-            logger.info(f"Cancelling {scan_type} scan with ID {scan_id}")
+            logger.info(f"Cancelling EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate connector for this scan type
+            # Get the appropriate EMoney connector for this scan type
             connector = self._get_connector(scan_type)
             
             # Update scan status to CANCELLED
@@ -333,8 +331,8 @@ class ScanService:
             active_entities = [er for er in entity_results if er.status in ('processing', 'pending', 'paused')]
             for entity_result in active_entities:
                 try:
-                    # Make the API call to cancel the entity scan
-                    logger.info(f"Cancelling {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
+                    # Make the API call to cancel the EMoney entity scan
+                    logger.info(f"Cancelling EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
                     await connector.cancel_scan(entity_result.id)
                     
                     # Update entity result status
@@ -344,7 +342,7 @@ class ScanService:
                         end_time=datetime.utcnow()
                     )
                 except Exception as e:
-                    logger.error(f"Error cancelling scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
+                    logger.error(f"Error cancelling EMoney scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                     continue
             
             # Stop status polling if available
@@ -354,12 +352,12 @@ class ScanService:
             # Get updated scan status to return
             return await self.get_scan_status(scan_id)
         except Exception as e:
-            logger.error(f"Failed to cancel {scan_type} scan: {str(e)}", exc_info=True)
+            logger.error(f"Failed to cancel EMoney {scan_type} scan: {str(e)}", exc_info=True)
             raise
 
     async def remove_scan(self, scan_id: str) -> Dict[str, Any]:
         """
-        Remove a scan and its associated data.
+        Remove an EMoney scan and its associated data.
         
         Args:
             scan_id: ID of the scan to remove
@@ -370,7 +368,7 @@ class ScanService:
         # Get the scan
         scan = await self.scan_repository.get_by_id(scan_id)
         if not scan:
-            raise ValueError(f"Scan with ID {scan_id} not found")
+            raise ValueError(f"EMoney scan with ID {scan_id} not found")
         
         # Get scan type and entity results
         scan_type = scan.scan_type
@@ -378,28 +376,28 @@ class ScanService:
         entity_count = len(entity_results)
         
         try:
-            logger.info(f"Removing {scan_type} scan with ID {scan_id}")
+            logger.info(f"Removing EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate connector for this scan type
+            # Get the appropriate EMoney connector for this scan type
             connector = self._get_connector(scan_type)
             
             # First cancel each entity scan if it's running
             for entity_result in entity_results:
                 if entity_result.status in ('pending', 'processing', 'paused'):
                     try:
-                        # Make the API call to cancel the entity scan
-                        logger.info(f"Cancelling {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
+                        # Make the API call to cancel the EMoney entity scan
+                        logger.info(f"Cancelling EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
                         await connector.cancel_scan(entity_result.id)
                     except Exception as e:
-                        logger.error(f"Error cancelling scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
+                        logger.error(f"Error cancelling EMoney scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                         continue
                 
                 # Then remove the scan data
                 try:
-                    logger.info(f"Removing {scan_type} scan data for entity type {entity_result.entity_type} with ID {entity_result.id}")
+                    logger.info(f"Removing EMoney {scan_type} scan data for entity type {entity_result.entity_type} with ID {entity_result.id}")
                     await connector.remove_scan(entity_result.id)
                 except Exception as e:
-                    logger.error(f"Error removing scan data for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
+                    logger.error(f"Error removing EMoney scan data for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                     continue
             
             # Stop status polling
@@ -421,12 +419,12 @@ class ScanService:
                 "entity_count": entity_count
             }
         except Exception as e:
-            logger.error(f"Failed to remove {scan_type} scan: {str(e)}", exc_info=True)
+            logger.error(f"Failed to remove EMoney {scan_type} scan: {str(e)}", exc_info=True)
             raise
     
     async def pause_scan(self, scan_id: str) -> Dict[str, Any]:
         """
-        Pause a running scan.
+        Pause a running EMoney scan.
         
         Args:
             scan_id: ID of the scan to pause
@@ -437,20 +435,20 @@ class ScanService:
         # Get the scan
         scan = await self.scan_repository.get_by_id(scan_id)
         if not scan:
-            raise ValueError(f"Scan with ID {scan_id} not found")
+            raise ValueError(f"EMoney scan with ID {scan_id} not found")
         
         # Check if scan is in a pausable state
         if scan.status != ScanStatus.RUNNING:
-            raise ValueError(f"Cannot pause scan with status {scan.status.value}. Only running scans can be paused.")
+            raise ValueError(f"Cannot pause EMoney scan with status {scan.status.value}. Only running scans can be paused.")
         
         # Get scan type and entity results
         scan_type = scan.scan_type
         entity_results = await self.scan_repository.get_entity_results(scan_id)
         
         try:
-            logger.info(f"Pausing {scan_type} scan with ID {scan_id}")
+            logger.info(f"Pausing EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate connector for this scan type
+            # Get the appropriate EMoney connector for this scan type
             connector = self._get_connector(scan_type)
             
             # Update scan status to PAUSED
@@ -460,8 +458,8 @@ class ScanService:
             processing_entities = [er for er in entity_results if er.status in ('processing', 'pending')]
             for entity_result in processing_entities:
                 try:
-                    # Make the API call to pause the entity scan
-                    logger.info(f"Pausing {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
+                    # Make the API call to pause the EMoney entity scan
+                    logger.info(f"Pausing EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
                     await connector.pause_scan(entity_result.id)
                     
                     # Update entity result status
@@ -470,7 +468,7 @@ class ScanService:
                         status="paused"
                     )
                 except Exception as e:
-                    logger.error(f"Error pausing scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
+                    logger.error(f"Error pausing EMoney scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                     continue
             
             # Pause status polling if available
@@ -486,12 +484,12 @@ class ScanService:
             except Exception:
                 pass
                 
-            logger.error(f"Failed to pause {scan_type} scan: {str(e)}", exc_info=True)
+            logger.error(f"Failed to pause EMoney {scan_type} scan: {str(e)}", exc_info=True)
             raise
     
     async def resume_scan(self, scan_id: str) -> Dict[str, Any]:
         """
-        Resume a paused scan.
+        Resume a paused EMoney scan.
         
         Args:
             scan_id: ID of the scan to resume
@@ -502,20 +500,20 @@ class ScanService:
         # Get the scan
         scan = await self.scan_repository.get_by_id(scan_id)
         if not scan:
-            raise ValueError(f"Scan with ID {scan_id} not found")
+            raise ValueError(f"EMoney scan with ID {scan_id} not found")
         
         # Check if scan is in a resumable state
         if scan.status != ScanStatus.PAUSED:
-            raise ValueError(f"Cannot resume scan with status {scan.status.value}. Only paused scans can be resumed.")
+            raise ValueError(f"Cannot resume EMoney scan with status {scan.status.value}. Only paused scans can be resumed.")
         
         # Get scan type and entity results
         scan_type = scan.scan_type
         entity_results = await self.scan_repository.get_entity_results(scan_id)
         
         try:
-            logger.info(f"Resuming {scan_type} scan with ID {scan_id}")
+            logger.info(f"Resuming EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate connector for this scan type
+            # Get the appropriate EMoney connector for this scan type
             connector = self._get_connector(scan_type)
             
             # Update scan status to RUNNING
@@ -525,8 +523,8 @@ class ScanService:
             paused_entities = [er for er in entity_results if er.status == 'paused']
             for entity_result in paused_entities:
                 try:
-                    # Make the API call to resume the entity scan
-                    logger.info(f"Resuming {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
+                    # Make the API call to resume the EMoney entity scan
+                    logger.info(f"Resuming EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
                     await connector.resume_scan(entity_result.id)
                     
                     # Update entity result status
@@ -535,7 +533,7 @@ class ScanService:
                         status="processing"
                     )
                 except Exception as e:
-                    logger.error(f"Error resuming scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
+                    logger.error(f"Error resuming EMoney scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                     continue
             
             # Resume status polling if available
@@ -551,7 +549,7 @@ class ScanService:
             except Exception:
                 pass
                 
-            logger.error(f"Failed to resume {scan_type} scan: {str(e)}", exc_info=True)
+            logger.error(f"Failed to resume EMoney {scan_type} scan: {str(e)}", exc_info=True)
             raise
 
     async def stream_scan_data(self, 
@@ -559,10 +557,10 @@ class ScanService:
                           offset: int = 0, 
                           limit: int = 100) -> Dict[str, Any]:
         """
-        Stream data from a completed scan with pagination.
+        Stream data from a completed EMoney scan with pagination.
         
         Args:
-            scan_id: ID of the scan to stream data from
+            scan_id: ID of the EMoney scan to stream data from
             offset: Number of records to skip
             limit: Maximum number of records to return
             
@@ -572,11 +570,11 @@ class ScanService:
         # Get the scan
         scan = await self.scan_repository.get_by_id(scan_id)
         if not scan:
-            raise ValueError(f"Scan with ID {scan_id} not found")
+            raise ValueError(f"EMoney scan with ID {scan_id} not found")
         
         # Check if scan is in a completed or at least running state
         if scan.status not in [ScanStatus.COMPLETED, ScanStatus.RUNNING]:
-            raise ValueError(f"Cannot stream data from scan with status {scan.status.value}. Scan must be completed or running.")
+            raise ValueError(f"Cannot stream data from EMoney scan with status {scan.status.value}. Scan must be completed or running.")
         
         # Get scan type and entity results
         scan_type = scan.scan_type
@@ -585,12 +583,12 @@ class ScanService:
         # Check if any entities are completed
         completed_entities = [er for er in entity_results if er.status == 'completed']
         if not completed_entities:
-            raise ValueError(f"No completed entity results available for streaming in scan {scan_id}")
+            raise ValueError(f"No completed entity results available for streaming in EMoney scan {scan_id}")
         
         try:
-            logger.info(f"Streaming data for {scan_type} scan with ID {scan_id}")
+            logger.info(f"Streaming data for EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate connector for this scan type
+            # Get the appropriate EMoney connector for this scan type
             connector = self._get_connector(scan_type)
             
             # Initialize counters for total records and batches
@@ -601,8 +599,8 @@ class ScanService:
             # Process each completed entity result separately
             for entity_result in completed_entities:
                 try:
-                    # Make the API call to stream data for this entity
-                    logger.info(f"Streaming {scan_type} data for entity type {entity_result.entity_type} with ID {entity_result.id}")
+                    # Make the API call to stream data for this EMoney entity
+                    logger.info(f"Streaming EMoney {scan_type} data for entity type {entity_result.entity_type} with ID {entity_result.id}")
                     
                     # Stream data for this specific entity result
                     response = await connector.stream_data(
@@ -628,16 +626,16 @@ class ScanService:
                             'batches': entity_batches
                         })
                         
-                        logger.info(f"Streamed {entity_count} records in {entity_batches} batches for {entity_result.entity_type}")
+                        logger.info(f"Streamed {entity_count} EMoney records in {entity_batches} batches for {entity_result.entity_type}")
                     
                 except Exception as e:
-                    logger.error(f"Error streaming data for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
+                    logger.error(f"Error streaming EMoney data for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                     continue
             
             # Compile the final response
             return {
                 "success": True,
-                "message": f"Streamed {total_count} {scan_type} records in {total_batches} batches",
+                "message": f"Streamed {total_count} EMoney {scan_type} records in {total_batches} batches",
                 "data": {
                     "total_count": total_count,
                     "total_batches": total_batches,
@@ -647,5 +645,5 @@ class ScanService:
                 }
             }
         except Exception as e:
-            logger.error(f"Failed to stream data for {scan_type} scan: {str(e)}", exc_info=True)
+            logger.error(f"Failed to stream data for EMoney {scan_type} scan: {str(e)}", exc_info=True)
             raise

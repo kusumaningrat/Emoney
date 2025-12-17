@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 import logging
 import os
@@ -53,13 +53,36 @@ def create_app(config_name: str = None) -> Flask:
             "endpoints": {
                 "start_scan": "POST /api/v1/scan/start",
                 "scan_status": "GET /api/v1/scan/{scan_id}/status",
+                "pause_scan": "POST /api/v1/scan/{scan_id}/pause",
                 "cancel_scan": "POST /api/v1/scan/{scan_id}/cancel",
+                "resume_scan": "POST /api/v1/scan/{scan_id}/resume",
+                "remove_scan": "DELETE /api/v1/scan/{scan_id}/remove",
                 "list_scans": "GET /api/v1/scan/list",
                 "pipeline_info": "GET /api/v1/pipeline/info",
                 "cleanup": "POST /api/v1/maintenance/cleanup"
             }
         }
     
+    # Add endpoint to serve the test report
+    @app.route('/test-report')
+    def test_report():
+        """Serve the test report HTML file"""
+        report_file = 'test-report.html'
+        reports_dir = 'test-reports'
+        
+        file_path = os.path.join(reports_dir, report_file)
+        if not os.path.isfile(file_path):
+            app.logger.warning(f"Test report not found: {file_path}")
+            return {"error": "Test report file not found"}, 404
+            
+        return send_from_directory(reports_dir, report_file)
+    
+    @app.route('/dashboard')
+    def dashboard():
+
+        """Serve the dashboard page"""
+        return send_from_directory('static/dashboard', 'index.html')
+
     return app
 
 
@@ -67,10 +90,10 @@ def setup_logging(app: Flask, config):
     """Setup application logging"""
     
     # Configure basic logging
-    # logging.basicConfig(
-    #     level=getattr(logging, config.LOG_LEVEL),
-    #     format=config.LOG_FORMAT
-    # )
+    logging.basicConfig(
+        level=getattr(logging, config.LOG_LEVEL),
+        format=config.LOG_FORMAT
+    )
     
     # Setup Loki logging if enabled - ONLY ONCE
     if config.LOKI_ENABLED and not hasattr(app, '_loki_configured'):
@@ -80,14 +103,6 @@ def setup_logging(app: Flask, config):
             app.logger.info("Loki logging enabled")
         except Exception as e:
             app.logger.warning(f"Failed to setup Loki logging: {e}")
-    
-    @app.route('/dashboard')
-    def dashboard():
-
-        """Serve the dashboard page"""
-        return send_from_directory('static/dashboard', 'index.html')
-
-    return app
 
 
 # Create app instance

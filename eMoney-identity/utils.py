@@ -59,7 +59,7 @@ def deep_serialize(data):
         return make_json_serializable(data)
 
 
-def build_dataset_name(organization_id: str, prefix: str = "hubspot_users") -> str:
+def build_dataset_name(organization_id: str, prefix: str = "emoney_identity") -> str:
     """Build a dataset name from organization ID"""
     return f"{prefix}_{organization_id.replace('-', '_')}"
 
@@ -86,7 +86,7 @@ def enhance_filters_with_metadata(filters: Dict[str, Any], scan_id: str) -> Dict
 def build_dlt_env_vars(config: Dict[str, Any]) -> Dict[str, str]:
     """Build DLT environment variables from config"""
     return {
-        'DESTINATION__POSTGRES__CREDENTIALS__DATABASE': config.get('db_name', 'hubspot_data'),
+        'DESTINATION__POSTGRES__CREDENTIALS__DATABASE': config.get('db_name', 'emoney_identity_data'),
         'DESTINATION__POSTGRES__CREDENTIALS__USERNAME': config.get('db_user', 'postgres'),
         'DESTINATION__POSTGRES__CREDENTIALS__PASSWORD': config.get('db_password', ''),
         'DESTINATION__POSTGRES__CREDENTIALS__HOST': config.get('db_host', 'localhost'),
@@ -102,7 +102,7 @@ def build_sql_queries(dataset_name: str, table_name: str, limit: int = 100, offs
         'count': f"SELECT COUNT(*) as total FROM {full_table_name}",
         'data': f"""
             SELECT * FROM {full_table_name}
-            ORDER BY "_extracted_at" DESC, "id"
+            ORDER BY "_extracted_at" DESC
             LIMIT {limit} OFFSET {offset}
         """,
         'columns_schema': f"""
@@ -191,10 +191,13 @@ def get_organization_lock(organization_id: str) -> threading.Lock:
 
 def create_isolated_pipeline(scan_id: str, organization_id: str, config: Dict[str, Any]):
     """Create unique pipeline per operation to prevent race conditions"""
-    # Use the service prefix from config or fallback to generic
-    service_prefix = config.get('service_type', 'dlt_service')
+    # Use the service prefix from config or fallback to emoney_identity
+    service_prefix = config.get('service_type', 'emoney_identity')
     unique_pipeline_name = f"{service_prefix}_pipeline_{scan_id.replace('-', '_')}"
-    dataset_name = build_dataset_name(organization_id)
+    
+    # Build dataset name using service type as prefix
+    dataset_name = build_dataset_name(organization_id, prefix=service_prefix)
+    
     working_dir = Path(tempfile.gettempdir()) / "dlt_pipelines" / unique_pipeline_name
     working_dir.mkdir(parents=True, exist_ok=True)
     

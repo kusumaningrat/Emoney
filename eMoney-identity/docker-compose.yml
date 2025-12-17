@@ -253,8 +253,8 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
 
       # API Configuration - eMoney Identity API
-      - EMONEY_API_BASE_URL=http://167.172.66.204:6820
-      - ORION_API_BASE_URL=http://167.172.66.204:6820
+      - EMONEY_API_BASE_URL=http://139.59.113.219:6820
+      
       
       # DLT Configuration
       - DLT_PIPELINE_NAME=emoney_identity_pipeline_dev
@@ -342,8 +342,8 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
       
       # API Configuration - eMoney Identity API
-      - EMONEY_API_BASE_URL=http://167.172.66.204:6820
-      - ORION_API_BASE_URL=http://167.172.66.204:6820
+      - EMONEY_API_BASE_URL=http://139.59.113.219:6820
+     
 
       # DLT Configuration
       - DLT_PIPELINE_NAME=emoney_identity_pipeline_stage
@@ -429,7 +429,7 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
       
       # API Configuration - eMoney Identity API
-      - EMONEY_API_BASE_URL=http://167.172.66.204:6820
+      - EMONEY_API_BASE_URL=http://139.59.113.219:6820
       
       # DLT Configuration
       - DLT_PIPELINE_NAME=emoney_identity_pipeline_prod
@@ -542,8 +542,8 @@ services:
       - DLT_WORKING_DIR=/app/.dlt
       
       # API Configuration - Points to mock server for testing
-      - EMONEY_API_BASE_URL=http://emoney_identity_mock_server:5001
-      - ORION_API_BASE_URL=http://emoney_identity_mock_server:5001
+      - EMONEY_API_BASE_URL=http://139.59.113.219:6820/
+      
 
       # Test-specific settings
       - LOG_FORMAT=json

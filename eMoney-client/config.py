@@ -42,18 +42,18 @@ class Config:
     DLT_RUNTIME_ENV = os.environ.get('DLT_RUNTIME_ENV', 'production')
     
     # eMoney API Configuration
-    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'https://api.emoney.com')
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
     EMONEY_API_TIMEOUT = int(os.environ.get('EMONEY_API_TIMEOUT', 30))
     EMONEY_API_RATE_LIMIT = int(os.environ.get('EMONEY_API_RATE_LIMIT', 100))
     EMONEY_RETRY_ATTEMPTS = int(os.environ.get('EMONEY_RETRY_ATTEMPTS', 3))
     EMONEY_RETRY_DELAY = int(os.environ.get('EMONEY_RETRY_DELAY', 1))
 
-    # eMoney Endpoint Configuration Variables
-    EMONEY_CLIENTS_ENDPOINT = "/v2/entities"
-    EMONEY_CONTACTS_ENDPOINT = "/v2/entities"
-    EMONEY_HOUSEHOLDS_ENDPOINT = "/v2/entities"
-    EMONEY_SPOUSES_ENDPOINT = "/v2/entities"
-    EMONEY_RELATIONSHIPS_ENDPOINT = "/v2/entities"
+    # eMoney Client & Household Management API Endpoints
+    EMONEY_CLIENTS_ENDPOINT = os.environ.get('EMONEY_CLIENTS_ENDPOINT', '/clients')
+    EMONEY_CONTACTS_ENDPOINT = os.environ.get('EMONEY_CONTACTS_ENDPOINT', '/contacts')
+    EMONEY_HOUSEHOLDS_ENDPOINT = os.environ.get('EMONEY_HOUSEHOLDS_ENDPOINT', '/households')
+    EMONEY_SPOUSES_ENDPOINT = os.environ.get('EMONEY_SPOUSES_ENDPOINT', '/spouse')
+    EMONEY_RELATIONSHIPS_ENDPOINT = os.environ.get('EMONEY_RELATIONSHIPS_ENDPOINT', '/relationships')
 
     # HMAC authentication settings
     HMAC_SECRET_KEY = os.environ.get('HMAC_SECRET_KEY', 'change-this-in-production')
@@ -164,6 +164,63 @@ class Config:
     RELATIONSHIP_PAUSE_CHECK_FREQUENCY = int(os.environ.get('RELATIONSHIP_PAUSE_CHECK_FREQUENCY', 5))
     RELATIONSHIP_CANCEL_CHECK_FREQUENCY = int(os.environ.get('RELATIONSHIP_CANCEL_CHECK_FREQUENCY', 2))
     RELATIONSHIP_MAX_BATCHES = int(os.environ.get('RELATIONSHIP_MAX_BATCHES', 1000))
+
+    # Identity object extraction control variables
+    USER_CHECKPOINT_FREQUENCY = int(os.environ.get('USER_CHECKPOINT_FREQUENCY', 10))
+    USER_PAUSE_CHECK_FREQUENCY = int(os.environ.get('USER_PAUSE_CHECK_FREQUENCY', 5))
+    USER_CANCEL_CHECK_FREQUENCY = int(os.environ.get('USER_CANCEL_CHECK_FREQUENCY', 2))
+    USER_MAX_BATCHES = int(os.environ.get('USER_MAX_BATCHES', 1000))
+
+    OFFICE_CHECKPOINT_FREQUENCY = int(os.environ.get('OFFICE_CHECKPOINT_FREQUENCY', 10))
+    OFFICE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('OFFICE_PAUSE_CHECK_FREQUENCY', 5))
+    OFFICE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('OFFICE_CANCEL_CHECK_FREQUENCY', 2))
+    OFFICE_MAX_BATCHES = int(os.environ.get('OFFICE_MAX_BATCHES', 1000))
+
+    ROLE_CHECKPOINT_FREQUENCY = int(os.environ.get('ROLE_CHECKPOINT_FREQUENCY', 10))
+    ROLE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ROLE_PAUSE_CHECK_FREQUENCY', 5))
+    ROLE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ROLE_CANCEL_CHECK_FREQUENCY', 2))
+    ROLE_MAX_BATCHES = int(os.environ.get('ROLE_MAX_BATCHES', 1000))
+
+    PERMISSION_CHECKPOINT_FREQUENCY = int(os.environ.get('PERMISSION_CHECKPOINT_FREQUENCY', 10))
+    PERMISSION_PAUSE_CHECK_FREQUENCY = int(os.environ.get('PERMISSION_PAUSE_CHECK_FREQUENCY', 5))
+    PERMISSION_CANCEL_CHECK_FREQUENCY = int(os.environ.get('PERMISSION_CANCEL_CHECK_FREQUENCY', 2))
+    PERMISSION_MAX_BATCHES = int(os.environ.get('PERMISSION_MAX_BATCHES', 1000))
+
+    SHARING_RULE_CHECKPOINT_FREQUENCY = int(os.environ.get('SHARING_RULE_CHECKPOINT_FREQUENCY', 10))
+    SHARING_RULE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('SHARING_RULE_PAUSE_CHECK_FREQUENCY', 5))
+    SHARING_RULE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('SHARING_RULE_CANCEL_CHECK_FREQUENCY', 2))
+    SHARING_RULE_MAX_BATCHES = int(os.environ.get('SHARING_RULE_MAX_BATCHES', 1000))
+
+    LOGON_CHECKPOINT_FREQUENCY = int(os.environ.get('LOGON_CHECKPOINT_FREQUENCY', 10))
+    LOGON_PAUSE_CHECK_FREQUENCY = int(os.environ.get('LOGON_PAUSE_CHECK_FREQUENCY', 5))
+    LOGON_CANCEL_CHECK_FREQUENCY = int(os.environ.get('LOGON_CANCEL_CHECK_FREQUENCY', 2))
+    LOGON_MAX_BATCHES = int(os.environ.get('LOGON_MAX_BATCHES', 1000))
+
+    # Account object extraction control variables
+    ACCOUNT_CHECKPOINT_FREQUENCY = int(os.environ.get('ACCOUNT_CHECKPOINT_FREQUENCY', 10))
+    ACCOUNT_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ACCOUNT_PAUSE_CHECK_FREQUENCY', 5))
+    ACCOUNT_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ACCOUNT_CANCEL_CHECK_FREQUENCY', 2))
+    ACCOUNT_MAX_BATCHES = int(os.environ.get('ACCOUNT_MAX_BATCHES', 1000))
+
+    ACCOUNT_TYPE_CHECKPOINT_FREQUENCY = int(os.environ.get('ACCOUNT_TYPE_CHECKPOINT_FREQUENCY', 10))
+    ACCOUNT_TYPE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ACCOUNT_TYPE_PAUSE_CHECK_FREQUENCY', 5))
+    ACCOUNT_TYPE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ACCOUNT_TYPE_CANCEL_CHECK_FREQUENCY', 2))
+    ACCOUNT_TYPE_MAX_BATCHES = int(os.environ.get('ACCOUNT_TYPE_MAX_BATCHES', 1000))
+
+    ASSET_CHECKPOINT_FREQUENCY = int(os.environ.get('ASSET_CHECKPOINT_FREQUENCY', 10))
+    ASSET_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ASSET_PAUSE_CHECK_FREQUENCY', 5))
+    ASSET_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ASSET_CANCEL_CHECK_FREQUENCY', 2))
+    ASSET_MAX_BATCHES = int(os.environ.get('ASSET_MAX_BATCHES', 1000))
+
+    ASSET_CLASS_CHECKPOINT_FREQUENCY = int(os.environ.get('ASSET_CLASS_CHECKPOINT_FREQUENCY', 10))
+    ASSET_CLASS_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ASSET_CLASS_PAUSE_CHECK_FREQUENCY', 5))
+    ASSET_CLASS_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ASSET_CLASS_CANCEL_CHECK_FREQUENCY', 2))
+    ASSET_CLASS_MAX_BATCHES = int(os.environ.get('ASSET_CLASS_MAX_BATCHES', 1000))
+
+    LIABILITY_CHECKPOINT_FREQUENCY = int(os.environ.get('LIABILITY_CHECKPOINT_FREQUENCY', 10))
+    LIABILITY_PAUSE_CHECK_FREQUENCY = int(os.environ.get('LIABILITY_PAUSE_CHECK_FREQUENCY', 5))
+    LIABILITY_CANCEL_CHECK_FREQUENCY = int(os.environ.get('LIABILITY_CANCEL_CHECK_FREQUENCY', 2))
+    LIABILITY_MAX_BATCHES = int(os.environ.get('LIABILITY_MAX_BATCHES', 1000))
     
     @classmethod
     def get_database_url(cls) -> str:
@@ -205,11 +262,6 @@ class Config:
             'emoney_api_base_url': cls.EMONEY_API_BASE_URL,
             'emoney_api_timeout': cls.EMONEY_API_TIMEOUT,
             'emoney_api_rate_limit': cls.EMONEY_API_RATE_LIMIT,
-            'emoney_clients_endpoint': cls.EMONEY_CLIENTS_ENDPOINT,
-            'emoney_contacts_endpoint': cls.EMONEY_CONTACTS_ENDPOINT,
-            'emoney_households_endpoint': cls.EMONEY_HOUSEHOLDS_ENDPOINT,
-            'emoney_spouses_endpoint': cls.EMONEY_SPOUSES_ENDPOINT,
-            'emoney_relationships_endpoint': cls.EMONEY_RELATIONSHIPS_ENDPOINT,
             'emoney_retry_attempts': cls.EMONEY_RETRY_ATTEMPTS,
             'emoney_retry_delay': cls.EMONEY_RETRY_DELAY,
             
@@ -245,11 +297,6 @@ class Config:
             'sources': {
                 'emoney_source': {
                     'base_url': cls.EMONEY_API_BASE_URL,
-                    'clients_endpoint': cls.EMONEY_CLIENTS_ENDPOINT,
-                    'contacts_endpoint': cls.EMONEY_CONTACTS_ENDPOINT,
-                    'households_endpoint': cls.EMONEY_HOUSEHOLDS_ENDPOINT,
-                    'spouses_endpoint': cls.EMONEY_SPOUSES_ENDPOINT,
-                    'relationships_endpoint': cls.EMONEY_RELATIONSHIPS_ENDPOINT,
                     'batch_size': cls.DEFAULT_BATCH_SIZE,
                     'timeout': cls.EMONEY_API_TIMEOUT,
                     'retry_attempts': cls.EMONEY_RETRY_ATTEMPTS
@@ -327,11 +374,6 @@ class Config:
             'emoney_api_base_url': cls.EMONEY_API_BASE_URL,
             'emoney_api_timeout': cls.EMONEY_API_TIMEOUT,
             'emoney_api_rate_limit': cls.EMONEY_API_RATE_LIMIT,
-            'clients_endpoint': cls.EMONEY_CLIENTS_ENDPOINT,
-            'contacts_endpoint': cls.EMONEY_CONTACTS_ENDPOINT,
-            'households_endpoint': cls.EMONEY_HOUSEHOLDS_ENDPOINT,
-            'spouses_endpoint': cls.EMONEY_SPOUSES_ENDPOINT,
-            'relationships_endpoint': cls.EMONEY_RELATIONSHIPS_ENDPOINT,
             'retry_attempts': cls.EMONEY_RETRY_ATTEMPTS,
             'retry_delay': cls.EMONEY_RETRY_DELAY,
             "max_scan_list_limit": 100,
@@ -367,7 +409,7 @@ class DevelopmentConfig(Config):
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '2'))
 
-    EMONEY_API_BASE_URL = 'http://167.172.66.204:6820'
+    EMONEY_API_BASE_URL = 'http://139.59.113.219:6820'
 
 
 class TestingConfig(Config):
@@ -393,7 +435,7 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     BCRYPT_LOG_ROUNDS = 4
 
-    EMONEY_API_BASE_URL = 'http://emoney_mock_server:5001'
+    EMONEY_API_BASE_URL = 'http://139.59.113.219:6820'
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', 2))
 
     # Test mode configuration for extraction
@@ -420,7 +462,7 @@ class StagingConfig(Config):
     FLASK_ENV = 'staging'
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', 0))
-    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'https://api.emoney.com')
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
 
 
 class ProductionConfig(Config):
@@ -451,7 +493,7 @@ class ProductionConfig(Config):
     FLASK_ENV = 'production'
 
     API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '0'))
-    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'https://api.emoney.com')
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://139.59.113.219:6820')
     
     @classmethod
     def validate_production_config(cls):
