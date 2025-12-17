@@ -257,7 +257,7 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
 
       # Financial Planning Core API Configuration - PRODUCTION URL
-      - FINANCIAL_PLANNING_API_BASE_URL=http://167.172.66.204:6820
+      - FINANCIAL_PLANNING_API_BASE_URL=http://139.59.113.219:6820
       
       # DLT Configuration
       - DLT_PIPELINE_NAME=financial_planning_extraction
@@ -381,7 +381,7 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
       
       # Financial Planning Core API Configuration - PRODUCTION URL
-      - FINANCIAL_PLANNING_API_BASE_URL=http://167.172.66.204:6820
+      - FINANCIAL_PLANNING_API_BASE_URL=http://139.59.113.219:6820
 
       # DLT Configuration
       - DLT_PIPELINE_NAME=financial_planning_extraction
@@ -477,7 +477,7 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
       
       # Financial Planning Core API Configuration - PRODUCTION URL
-      - FINANCIAL_PLANNING_API_BASE_URL=http://167.172.66.204:6820
+      - FINANCIAL_PLANNING_API_BASE_URL=http://139.59.113.219:6820
       
       # DLT Configuration
       - DLT_PIPELINE_NAME=financial_planning_extraction
@@ -600,7 +600,7 @@ services:
       - DLT_WORKING_DIR=/app/.dlt
       
       # Use Mock Server for Testing
-      - FINANCIAL_PLANNING_API_BASE_URL=http://emoney_financial_planning_mock_server:5001
+      - FINANCIAL_PLANNING_API_BASE_URL=http://139.59.113.219:6820
 
       # Test-specific settings
       - LOG_FORMAT=json

@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Git
+.git
+.gitignore
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Tests
+tests/
+pytest.ini
+coverage.xml
+.coverage
+htmlcov/
+
+# Documentation
+README.md
+LICENSE
+docs/
+
+# Logs
+logs/
+*.log
+
+# Local development
+.python-version
+.DS_Store

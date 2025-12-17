@@ -253,7 +253,7 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
 
       # API Configuration
-      - EMONEY_API_BASE_URL=http://167.172.66.204:6820
+      - EMONEY_API_BASE_URL=http://139.59.113.219:6820
       
       # DLT Configuration
       - DLT_PIPELINE_NAME=emoney_client_pipeline_dev
@@ -341,7 +341,7 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
       
       # API Configuration
-      - EMONEY_API_BASE_URL=http://167.172.66.204:6820
+      - EMONEY_API_BASE_URL=http://139.59.113.219:6820
 
       # DLT Configuration
       - DLT_PIPELINE_NAME=emoney_client_pipeline_stage
@@ -427,7 +427,7 @@ services:
       - DESTINATION__POSTGRES__CREDENTIALS__PORT=5432
       
       # API Configuration
-      - EMONEY_API_BASE_URL=http://167.172.66.204:6820
+      - EMONEY_API_BASE_URL=http://139.59.113.219:6820
       
       # DLT Configuration
       - DLT_PIPELINE_NAME=emoney_client_pipeline_prod
@@ -540,7 +540,7 @@ services:
       - DLT_WORKING_DIR=/app/.dlt
       
       # API Configuration
-      - EMONEY_API_BASE_URL=http://167.172.66.204:6820
+      - EMONEY_API_BASE_URL=http://139.59.113.219:6820
 
       # Test-specific settings
       - LOG_FORMAT=json

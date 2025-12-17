@@ -1,0 +1,111 @@
+version: '3.8'
+
+name : wealthbox-service-orchestrator
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: service-orchestrator
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      # Application settings
+      - APP_NAME=${APP_NAME:-Service Orchestrator}
+      - API_VERSION=${API_VERSION:-v1}
+      - DEBUG=${DEBUG:-False}
+      - ENVIRONMENT=${ENVIRONMENT:-dev}
+      
+      # Security
+      - API_KEY=${API_KEY:-default_api_key}
+      - SECRET_KEY=${SECRET_KEY:-default_secret_key}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-orchestrator}
+      
+      # CORS
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      
+      # Service settings
+      - DEFAULT_SERVICE_TIMEOUT=${DEFAULT_SERVICE_TIMEOUT:-5.0}
+      - SCAN_RESULT_RETENTION_DAYS=${SCAN_RESULT_RETENTION_DAYS:-30}
+      
+      # Service URLs - Development
+      - CLIENT_URL_DEV=${CLIENT_URL_DEV:-http://host.docker.internal:4642}
+      - OPPORTUNITY_URL_DEV=${OPPORTUNITY_URL_DEV:-http://host.docker.internal:4644}
+      - IDENTITY_URL_DEV=${IDENTITY_URL_DEV:-http://host.docker.internal:4641}
+      - ACTIVITY_URL_DEV=${ACTIVITY_URL_DEV:-http://host.docker.internal:4643}
+      
+      # Service URLs - Staging
+      - CLIENT_URL_STAGE=${CLIENT_URL_STAGE:-https://client.stage.wealthbox-integration.example.com}
+      - OPPORTUNITY_URL_STAGE=${OPPORTUNITY_URL_STAGE:-https://opportunity.stage.wealthbox-integration.example.com}
+      - IDENTITY_URL_STAGE=${IDENTITY_URL_STAGE:-https://identity.stage.wealthbox-integration.example.com}
+      - ACTIVITY_URL_STAGE=${ACTIVITY_URL_STAGE:-https://activity.stage.wealthbox-integration.example.com}
+      
+      # Service URLs - Production
+      - CLIENT_URL_PROD=${CLIENT_URL_PROD:-https://client.wealthbox-integration.example.com}
+      - OPPORTUNITY_URL_PROD=${OPPORTUNITY_URL_PROD:-https://opportunity.wealthbox-integration.example.com}
+      - IDENTITY_URL_PROD=${IDENTITY_URL_PROD:-https://identity.wealthbox-integration.example.com}
+      - ACTIVITY_URL_PROD=${ACTIVITY_URL_PROD:-https://activity.wealthbox-integration.example.com}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "5640:5640"
+    networks:
+      - orchestrator-network
+    volumes:
+      - ./app:/app/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5640/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  db:
+    image: postgres:15-alpine
+    container_name: orchestrator-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-orchestrator}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - orchestrator-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: orchestrator-pgadmin
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@example.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    networks:
+      - orchestrator-network
+    depends_on:
+      - db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+networks:
+  orchestrator-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:

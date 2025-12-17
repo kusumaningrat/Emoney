@@ -21,19 +21,19 @@ class APIService:
         self.config = get_config()
         self.access_token = None
 
-        # eMoney API endpoints
-        self.EMONEY_ACCOUNTS_ENDPOINT = "/accounts"
-        self.EMONEY_ACCOUNT_TYPES_ENDPOINT = "/account-types"
-        self.EMONEY_ASSETS_ENDPOINT = "/assets"
-        self.EMONEY_ASSET_CLASSES_ENDPOINT = "/assetclasses"
-        self.EMONEY_LIABILITIES_ENDPOINT = "/liabilities"
+        # eMoney Advisor API endpoints from config
+        self.EMONEY_ACCOUNTS_ENDPOINT = self.config.EMONEY_ACCOUNTS_ENDPOINT
+        self.EMONEY_ACCOUNT_TYPES_ENDPOINT = self.config.EMONEY_ACCOUNT_TYPES_ENDPOINT
+        self.EMONEY_ASSETS_ENDPOINT = self.config.EMONEY_ASSETS_ENDPOINT
+        self.EMONEY_ASSET_CLASSES_ENDPOINT = self.config.EMONEY_ASSET_CLASSES_ENDPOINT
+        self.EMONEY_LIABILITIES_ENDPOINT = self.config.EMONEY_LIABILITIES_ENDPOINT
 
-        # Default headers for eMoney API
+        # Default headers for eMoney Advisor API
         self.session.headers.update(
             {
                 "Content-Type": "application/json",
                 "Accept": "application/json",
-                "User-Agent": "eMoney-Client/1.0",
+                "User-Agent": "eMoney-Advisor/1.0",
             }
         )
 
@@ -42,7 +42,7 @@ class APIService:
     # ---------------------------
     def authenticate(self, auth_config: Dict[str, Any] = None) -> str:
         """
-        Authenticate with Wealthbox Client API
+        Authenticate with eMoney Advisor API
 
         Args:
             auth_config: Optional authentication config (not used for mock server)
@@ -51,7 +51,7 @@ class APIService:
             Access token (can be any string for mock server)
         """
         try:
-            self.logger.info("Authenticating with Wealthbox Client API")
+            self.logger.info("Authenticating with eMoney Advisor API")
 
             # For the mock server, the token can be anything
             self.access_token = "anything"
@@ -67,7 +67,6 @@ class APIService:
         except Exception as e:
             self.logger.error(f"Authentication failed: {str(e)}")
             raise
-            
 
     # ---------------------------
     # REQUEST HANDLER
@@ -148,7 +147,6 @@ class APIService:
 
         raise Exception(f"Failed to complete request after {max_retries} attempts")
 
-
     # ---------------------------
     # ACCOUNT OBJECTS (eMoney API pagination uses page & pageSize)
     # ---------------------------
@@ -160,7 +158,7 @@ class APIService:
         include_details: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get account records from eMoney API
+        Get account records from eMoney Advisor API
         
         Endpoint: GET /accounts
         
@@ -206,7 +204,7 @@ class APIService:
         filters: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
-        Get account type records from eMoney API
+        Get account type records from eMoney Advisor API
         
         Endpoint: GET /account-types
         
@@ -249,7 +247,7 @@ class APIService:
         include_details: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get asset records from eMoney API
+        Get asset records from eMoney Advisor API
         
         Endpoint: GET /assets
         
@@ -296,7 +294,7 @@ class APIService:
         include_details: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get asset class records from eMoney API
+        Get asset class records from eMoney Advisor API
         
         Endpoint: GET /assetclasses
         
@@ -343,7 +341,7 @@ class APIService:
         include_details: bool = False,
     ) -> Dict[str, Any]:
         """
-        Get liability records from eMoney API
+        Get liability records from eMoney Advisor API
         
         Endpoint: GET /liabilities
         
