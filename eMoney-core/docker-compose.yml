@@ -68,13 +68,13 @@ services:
       # Logging
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
-      - "5640:5640"
+      - "5730:5730"
     networks:
       - emoney-orchestrator-network
     volumes:
       - ./app:/app/app
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5640/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5730/health"]
       interval: 30s
       timeout: 10s
       retries: 3
