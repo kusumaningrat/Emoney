@@ -336,78 +336,62 @@ class APIService:
             
         return self._make_request(endpoint, params)
 
-    def get_cashflow(
+    # ---------------------------
+    # CASHFLOW ENDPOINTS
+    # ---------------------------
+    def get_cashflows(
         self,
-        scenario_id: str,
-        start_year: Optional[int] = None,
-        end_year: Optional[int] = None,
-        include_details: bool = False,
+        page: int = 1,
+        page_size: int = 100,
+        filters: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
-        Get cash flow projections for a scenario
+        Get all cash flow records from eMoney Planning API
         
-        Endpoint: GET /scenarios/{scenarioId}/cashflow
+        Endpoint: GET /cashflow
         
         Args:
-            scenario_id: Scenario ID
-            start_year: Starting year for projections
-            end_year: Ending year for projections
-            include_details: Include detailed cash flow breakdown
+            page: Page number to retrieve (pagination)
+            page_size: Maximum number of records per page (max 100)
+            filters: Additional filters (plan_id, scenario_id, year, etc.)
 
         Returns:
-            Cash flow projection data
+            Dict with cash flow records
         """
-        endpoint = f"{self.EMONEY_SCENARIOS_ENDPOINT}/{scenario_id}/cashflow"
-        params = {}
+        endpoint = self.EMONEY_CASHFLOW_ENDPOINT
+        params = {"page": page, "pageSize": min(page_size, 100)}
         
-        if start_year:
-            params["startYear"] = start_year
-        if end_year:
-            params["endYear"] = end_year
-        if include_details:
-            params["includeDetails"] = "true"
+        if filters:
+            params.update(filters)
             
         return self._make_request(endpoint, params)
 
-    def get_networth(
+    # ---------------------------
+    # NETWORTH ENDPOINTS
+    # ---------------------------
+    def get_networths(
         self,
-        scenario_id: str,
-        start_year: Optional[int] = None,
-        end_year: Optional[int] = None,
-        include_assets: bool = False,
-        include_liabilities: bool = False,
+        page: int = 1,
+        page_size: int = 100,
+        filters: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
-        Get net worth projections for a scenario
+        Get all net worth records from eMoney Planning API
         
-        Endpoint: GET /scenarios/{scenarioId}/networth
+        Endpoint: GET /networth
         
         Args:
-            scenario_id: Scenario ID
-            start_year: Starting year for projections
-            end_year: Ending year for projections
-            include_assets: Include detailed asset breakdown
-            include_liabilities: Include detailed liability breakdown
+            page: Page number to retrieve (pagination)
+            page_size: Maximum number of records per page (max 100)
+            filters: Additional filters (plan_id, scenario_id, year, etc.)
 
         Returns:
-            Net worth projection data
+            Dict with net worth records
         """
-        endpoint = f"{self.EMONEY_SCENARIOS_ENDPOINT}/{scenario_id}/networth"
-        params = {}
+        endpoint = self.EMONEY_NETWORTH_ENDPOINT
+        params = {"page": page, "pageSize": min(page_size, 100)}
         
-        if start_year:
-            params["startYear"] = start_year
-        if end_year:
-            params["endYear"] = end_year
-            
-        # Build include parameter
-        include_parts = []
-        if include_assets:
-            include_parts.append("assets")
-        if include_liabilities:
-            include_parts.append("liabilities")
-            
-        if include_parts:
-            params["include"] = ",".join(include_parts)
+        if filters:
+            params.update(filters)
             
         return self._make_request(endpoint, params)

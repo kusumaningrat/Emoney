@@ -57,17 +57,25 @@ def extract_cashflow(
             f"record delay={test_record_delay}s"
         )
 
-    skip = 0
-    limit = filters.get("batch_size", 100) if filters else 100
+    page = 1
+    page_size = filters.get("batch_size", 100) if filters else 100
     total_records = 0
     entity = "cashflow"
     batch_counter = 0
 
-    # Extract plan_id from filters (required for cash flow)
-    plan_id = filters.get("plan_id") if filters else None
-    if not plan_id:
-        logger.error("plan_id is required for cash flow extraction")
-        raise ValueError("plan_id is required for cash flow extraction")
+    # Prepare API filters (plan_id, scenario_id, year, etc.)
+    api_filters = {}
+    if filters:
+        # Copy filters that should be passed to the API
+        for key in ["plan_id", "scenario_id", "year", "month"]:
+            if key in filters:
+                api_filters[key] = filters[key]
+
+    # Log filter information
+    if api_filters:
+        logger.info(f"Applying filters: {api_filters}")
+    else:
+        logger.info("No filters applied - fetching all cashflow records")
 
     # Check if resuming from a previous state
     if resume_from and isinstance(resume_from, dict):
@@ -86,13 +94,13 @@ def extract_cashflow(
             if checkpoint_data and checkpoint_data.get("status") == "paused":
                 logger.info(f"Resuming {entity} extraction from paused state")
 
-            # Resume from the last offset
-            if checkpoint_data and "offset" in checkpoint_data:
-                skip = checkpoint_data["offset"]
+            # Resume from the last page
+            if checkpoint_data and "page" in checkpoint_data:
+                page = checkpoint_data["page"]
                 total_records = entity_checkpoint.get("records_processed", 0)
                 batch_counter = checkpoint_data.get("batch_counter", 0)
                 logger.info(
-                    f"Resuming {entity} extraction from offset {skip} "
+                    f"Resuming {entity} extraction from page {page} "
                     f"(batch {batch_counter})"
                 )
 
@@ -103,7 +111,7 @@ def extract_cashflow(
                     "entity": entity,
                     "records_processed": total_records,
                     "checkpoint_data": {
-                        "offset": skip,
+                        "page": page,
                         "status": status,
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                         "batch_counter": batch_counter,
@@ -174,18 +182,23 @@ def extract_cashflow(
 
         try:
             logger.info(
-                f"Fetching cash flow (skip: {skip}, limit: {limit}) - "
+                f"Fetching cashflow (page: {page}, pageSize: {page_size}) - "
                 f"batch {batch_counter}/{CASHFLOW_MAX_BATCHES}..."
             )
 
-            response = api_service.get_cashflow(
-                plan_id=plan_id, skip=skip, limit=limit, filters=filters
+            # Call the updated API method
+            response = api_service.get_cashflows(
+                page=page, 
+                page_size=page_size, 
+                filters=api_filters if api_filters else None
             )
 
             # Handle different response formats
             if isinstance(response, dict):
                 if "cashflow" in response:
                     cashflows = response.get("cashflow", [])
+                elif "cashflows" in response:
+                    cashflows = response.get("cashflows", [])
                 elif "Data" in response:
                     cashflows = response.get("Data", [])
                 elif "results" in response:
@@ -232,37 +245,42 @@ def extract_cashflow(
                 try:
                     # Create normalized record for cash flow
                     cf_record = {
-                        "id": cashflow.get("id"),
-                        "plan_id": cashflow.get("planId") or cashflow.get("plan_id"),
-                        "scenario_id": cashflow.get("scenarioId") or cashflow.get("scenario_id"),
-                        "year": cashflow.get("year"),
-                        "month": cashflow.get("month"),
-                        "period": cashflow.get("period"),
-                        "income_total": cashflow.get("incomeTotal") or cashflow.get("income_total"),
-                        "expense_total": cashflow.get("expenseTotal") or cashflow.get("expense_total"),
-                        "net_cashflow": cashflow.get("netCashflow") or cashflow.get("net_cashflow"),
-                        "beginning_balance": cashflow.get("beginningBalance") or cashflow.get("beginning_balance"),
-                        "ending_balance": cashflow.get("endingBalance") or cashflow.get("ending_balance"),
-                        "investment_contribution": cashflow.get("investmentContribution") or cashflow.get("investment_contribution"),
-                        "investment_withdrawal": cashflow.get("investmentWithdrawal") or cashflow.get("investment_withdrawal"),
-                        "debt_payment": cashflow.get("debtPayment") or cashflow.get("debt_payment"),
-                        "tax_amount": cashflow.get("taxAmount") or cashflow.get("tax_amount"),
-                        "created_date": cashflow.get("createdDate") or cashflow.get("created_date"),
+                        "cashflow_id": cashflow.get("CashFlowID") or cashflow.get("cashflow_id") or cashflow.get("cashFlowId") or cashflow.get("id"),
+                        "plan_id": cashflow.get("PlanID") or cashflow.get("planId") or cashflow.get("plan_id"),
+                        "scenario_id": cashflow.get("ScenarioID") or cashflow.get("scenarioId") or cashflow.get("scenario_id"),
+                        "year": cashflow.get("Year") or cashflow.get("year"),
+                        "month": cashflow.get("Month") or cashflow.get("month"),
+                        "period": cashflow.get("Period") or cashflow.get("period"),
+                        "total_income": cashflow.get("TotalIncome") or cashflow.get("incomeTotal") or cashflow.get("income_total") or cashflow.get("totalIncome"),
+                        "total_expenses": cashflow.get("TotalExpenses") or cashflow.get("expenseTotal") or cashflow.get("expense_total") or cashflow.get("totalExpenses"),
+                        "net_cashflow": cashflow.get("NetCashFlow") or cashflow.get("netCashflow") or cashflow.get("net_cashflow") or cashflow.get("netCashFlow"),
+                        "cumulative_cashflow": cashflow.get("CumulativeCashFlow") or cashflow.get("cumulativeCashflow") or cashflow.get("cumulative_cashflow") or cashflow.get("cumulativeCashFlow"),
+                        "inflation_adjusted_income": cashflow.get("InflationAdjustedIncome") or cashflow.get("inflationAdjustedIncome") or cashflow.get("inflation_adjusted_income"),
+                        "inflation_adjusted_expenses": cashflow.get("InflationAdjustedExpenses") or cashflow.get("inflationAdjustedExpenses") or cashflow.get("inflation_adjusted_expenses"),
+                        "beginning_balance": cashflow.get("BeginningBalance") or cashflow.get("beginningBalance") or cashflow.get("beginning_balance"),
+                        "ending_balance": cashflow.get("EndingBalance") or cashflow.get("endingBalance") or cashflow.get("ending_balance"),
+                        "investment_contribution": cashflow.get("InvestmentContribution") or cashflow.get("investmentContribution") or cashflow.get("investment_contribution"),
+                        "investment_withdrawal": cashflow.get("InvestmentWithdrawal") or cashflow.get("investmentWithdrawal") or cashflow.get("investment_withdrawal"),
+                        "debt_payment": cashflow.get("DebtPayment") or cashflow.get("debtPayment") or cashflow.get("debt_payment"),
+                        "tax_amount": cashflow.get("TaxAmount") or cashflow.get("taxAmount") or cashflow.get("tax_amount"),
+                        "created_date": cashflow.get("CreatedDate") or cashflow.get("createdDate") or cashflow.get("created_date"),
                     }
 
                     # Handle nested/complex fields
-                    if cashflow.get("income_breakdown"):
+                    if cashflow.get("income_breakdown") or cashflow.get("IncomeBreakdown") or cashflow.get("incomeBreakdown"):
                         cf_record["income_breakdown"] = json.dumps(
-                            cashflow.get("income_breakdown")
+                            cashflow.get("income_breakdown") or cashflow.get("IncomeBreakdown") or cashflow.get("incomeBreakdown")
                         )
 
-                    if cashflow.get("expense_breakdown"):
+                    if cashflow.get("expense_breakdown") or cashflow.get("ExpenseBreakdown") or cashflow.get("expenseBreakdown"):
                         cf_record["expense_breakdown"] = json.dumps(
-                            cashflow.get("expense_breakdown")
+                            cashflow.get("expense_breakdown") or cashflow.get("ExpenseBreakdown") or cashflow.get("expenseBreakdown")
                         )
 
-                    if cashflow.get("metadata"):
-                        cf_record["metadata"] = json.dumps(cashflow.get("metadata"))
+                    if cashflow.get("metadata") or cashflow.get("Metadata"):
+                        cf_record["metadata"] = json.dumps(
+                            cashflow.get("metadata") or cashflow.get("Metadata")
+                        )
 
                     # Add extraction metadata
                     for meta_key, meta_value in extraction_metadata.items():
@@ -314,14 +332,17 @@ def extract_cashflow(
             if should_save_checkpoint():
                 save_checkpoint()
 
-            if len(cashflows) < limit:
+            # Check if we received a partial page (end of results)
+            if len(cashflows) < page_size:
+                logger.info("Received partial page. Assuming end of results.")
                 break
 
-            skip += len(cashflows)
+            # Move to next page
+            page += 1
 
         except Exception as e:
             logger.error(
-                f"Error extracting cash flow at offset {skip} - "
+                f"Error extracting cash flow at page {page} - "
                 f"batch {batch_counter}: {e}"
             )
             save_checkpoint(status="error")

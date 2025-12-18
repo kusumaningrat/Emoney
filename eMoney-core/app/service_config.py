@@ -63,7 +63,7 @@ EMONEY_SERVICES = {
         "name": "EMoney Financial Planning Service",
         "domain": "Financial Planning & Analysis", 
         "description": "Extract financial plans, goals, and projections",
-        "entity_types": ["plan", "goal", "net_worth", "scenario", "cashflow"],
+        "entity_types": ["plan", "goal", "networth", "scenario", "cashflow"],
         "endpoints": STANDARD_ENDPOINTS.copy(),
         "auth_type": "jwt",
         "default_scan_pattern": "emoney-plan-2025-{uuid}"

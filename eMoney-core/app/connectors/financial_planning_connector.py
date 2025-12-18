@@ -16,7 +16,7 @@ class EMoneyFinancialPlanningConnector:
     """
     
     # Supported specific entity types for this service
-    SUPPORTED_ENTITY_TYPES = ["plan", "goal", "net_worth", "scenario", "cashflow"]
+    SUPPORTED_ENTITY_TYPES = ["plan", "goal", "networth", "scenario", "cashflow"]
     
     def __init__(self, api_key: Optional[str] = None, timeout: float = 5.0):
         """

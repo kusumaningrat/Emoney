@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const entityTypesByService = {
         account: ["account", "accounttype", "asset", "assetclass", "liability"],
         client: ["client", "contact", "household", "relationship", "spouse"],
-        financial_planning: ["plan", "goal", "net_worth", "scenario", "cashflow"],
+        financial_planning: ["plan", "goal", "networth", "scenario", "cashflow"],
         identity: ["user", "office", "role", "permission", "sharingrule", "logon"]
     };
 

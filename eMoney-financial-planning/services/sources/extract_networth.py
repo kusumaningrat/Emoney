@@ -57,17 +57,25 @@ def extract_networth(
             f"record delay={test_record_delay}s"
         )
 
-    skip = 0
-    limit = filters.get("batch_size", 100) if filters else 100
+    page = 1
+    page_size = filters.get("batch_size", 100) if filters else 100
     total_records = 0
     entity = "networth"
     batch_counter = 0
 
-    # Extract plan_id from filters (required for net worth)
-    plan_id = filters.get("plan_id") if filters else None
-    if not plan_id:
-        logger.error("plan_id is required for net worth extraction")
-        raise ValueError("plan_id is required for net worth extraction")
+    # Prepare API filters (plan_id, scenario_id, year, etc.)
+    api_filters = {}
+    if filters:
+        # Copy filters that should be passed to the API
+        for key in ["plan_id", "scenario_id", "year", "month", "date"]:
+            if key in filters:
+                api_filters[key] = filters[key]
+
+    # Log filter information
+    if api_filters:
+        logger.info(f"Applying filters: {api_filters}")
+    else:
+        logger.info("No filters applied - fetching all networth records")
 
     # Check if resuming from a previous state
     if resume_from and isinstance(resume_from, dict):
@@ -86,13 +94,13 @@ def extract_networth(
             if checkpoint_data and checkpoint_data.get("status") == "paused":
                 logger.info(f"Resuming {entity} extraction from paused state")
 
-            # Resume from the last offset
-            if checkpoint_data and "offset" in checkpoint_data:
-                skip = checkpoint_data["offset"]
+            # Resume from the last page
+            if checkpoint_data and "page" in checkpoint_data:
+                page = checkpoint_data["page"]
                 total_records = entity_checkpoint.get("records_processed", 0)
                 batch_counter = checkpoint_data.get("batch_counter", 0)
                 logger.info(
-                    f"Resuming {entity} extraction from offset {skip} "
+                    f"Resuming {entity} extraction from page {page} "
                     f"(batch {batch_counter})"
                 )
 
@@ -103,7 +111,7 @@ def extract_networth(
                     "entity": entity,
                     "records_processed": total_records,
                     "checkpoint_data": {
-                        "offset": skip,
+                        "page": page,
                         "status": status,
                         "timestamp": datetime.now(timezone.utc).isoformat(),
                         "batch_counter": batch_counter,
@@ -174,18 +182,23 @@ def extract_networth(
 
         try:
             logger.info(
-                f"Fetching net worth (skip: {skip}, limit: {limit}) - "
+                f"Fetching networth (page: {page}, pageSize: {page_size}) - "
                 f"batch {batch_counter}/{NETWORTH_MAX_BATCHES}..."
             )
 
-            response = api_service.get_plan_networth(
-                plan_id=plan_id, skip=skip, limit=limit, filters=filters
+            # Call the updated API method
+            response = api_service.get_networths(
+                page=page, 
+                page_size=page_size, 
+                filters=api_filters if api_filters else None
             )
 
             # Handle different response formats
             if isinstance(response, dict):
                 if "networth" in response:
                     networths = response.get("networth", [])
+                elif "networths" in response:
+                    networths = response.get("networths", [])
                 elif "Data" in response:
                     networths = response.get("Data", [])
                 elif "results" in response:
@@ -232,40 +245,42 @@ def extract_networth(
                 try:
                     # Create normalized record for net worth
                     nw_record = {
-                        "id": networth.get("id"),
-                        "plan_id": networth.get("planId") or networth.get("plan_id"),
-                        "scenario_id": networth.get("scenarioId") or networth.get("scenario_id"),
-                        "date": networth.get("date"),
-                        "year": networth.get("year"),
-                        "month": networth.get("month"),
-                        "total_assets": networth.get("totalAssets") or networth.get("total_assets"),
-                        "total_liabilities": networth.get("totalLiabilities") or networth.get("total_liabilities"),
-                        "net_worth": networth.get("netWorth") or networth.get("net_worth"),
-                        "liquid_assets": networth.get("liquidAssets") or networth.get("liquid_assets"),
-                        "investment_assets": networth.get("investmentAssets") or networth.get("investment_assets"),
-                        "real_estate_assets": networth.get("realEstateAssets") or networth.get("real_estate_assets"),
-                        "retirement_assets": networth.get("retirementAssets") or networth.get("retirement_assets"),
-                        "other_assets": networth.get("otherAssets") or networth.get("other_assets"),
-                        "mortgage_liabilities": networth.get("mortgageLiabilities") or networth.get("mortgage_liabilities"),
-                        "loan_liabilities": networth.get("loanLiabilities") or networth.get("loan_liabilities"),
-                        "credit_card_liabilities": networth.get("creditCardLiabilities") or networth.get("credit_card_liabilities"),
-                        "other_liabilities": networth.get("otherLiabilities") or networth.get("other_liabilities"),
-                        "created_date": networth.get("createdDate") or networth.get("created_date"),
+                        "networth_id": networth.get("NetWorthID") or networth.get("networth_id") or networth.get("netWorthId") or networth.get("id") or networth.get("ID"),
+                        "plan_id": networth.get("PlanID") or networth.get("planId") or networth.get("plan_id"),
+                        "scenario_id": networth.get("ScenarioID") or networth.get("scenarioId") or networth.get("scenario_id"),
+                        "date": networth.get("Date") or networth.get("date"),
+                        "year": networth.get("Year") or networth.get("year"),
+                        "month": networth.get("Month") or networth.get("month"),
+                        "total_assets": networth.get("TotalAssets") or networth.get("totalAssets") or networth.get("total_assets"),
+                        "total_liabilities": networth.get("TotalLiabilities") or networth.get("totalLiabilities") or networth.get("total_liabilities"),
+                        "net_worth": networth.get("NetWorth") or networth.get("netWorth") or networth.get("net_worth"),
+                        "liquid_assets": networth.get("LiquidAssets") or networth.get("liquidAssets") or networth.get("liquid_assets"),
+                        "investment_assets": networth.get("InvestmentAssets") or networth.get("investmentAssets") or networth.get("investment_assets"),
+                        "real_estate_assets": networth.get("RealEstateAssets") or networth.get("realEstateAssets") or networth.get("real_estate_assets"),
+                        "retirement_assets": networth.get("RetirementAssets") or networth.get("retirementAssets") or networth.get("retirement_assets"),
+                        "other_assets": networth.get("OtherAssets") or networth.get("otherAssets") or networth.get("other_assets"),
+                        "mortgage_liabilities": networth.get("MortgageLiabilities") or networth.get("mortgageLiabilities") or networth.get("mortgage_liabilities"),
+                        "loan_liabilities": networth.get("LoanLiabilities") or networth.get("loanLiabilities") or networth.get("loan_liabilities"),
+                        "credit_card_liabilities": networth.get("CreditCardLiabilities") or networth.get("creditCardLiabilities") or networth.get("credit_card_liabilities"),
+                        "other_liabilities": networth.get("OtherLiabilities") or networth.get("otherLiabilities") or networth.get("other_liabilities"),
+                        "created_date": networth.get("CreatedDate") or networth.get("createdDate") or networth.get("created_date"),
                     }
 
                     # Handle nested/complex fields
-                    if networth.get("asset_breakdown"):
+                    if networth.get("asset_breakdown") or networth.get("AssetBreakdown") or networth.get("assetBreakdown"):
                         nw_record["asset_breakdown"] = json.dumps(
-                            networth.get("asset_breakdown")
+                            networth.get("asset_breakdown") or networth.get("AssetBreakdown") or networth.get("assetBreakdown")
                         )
 
-                    if networth.get("liability_breakdown"):
+                    if networth.get("liability_breakdown") or networth.get("LiabilityBreakdown") or networth.get("liabilityBreakdown"):
                         nw_record["liability_breakdown"] = json.dumps(
-                            networth.get("liability_breakdown")
+                            networth.get("liability_breakdown") or networth.get("LiabilityBreakdown") or networth.get("liabilityBreakdown")
                         )
 
-                    if networth.get("metadata"):
-                        nw_record["metadata"] = json.dumps(networth.get("metadata"))
+                    if networth.get("metadata") or networth.get("Metadata"):
+                        nw_record["metadata"] = json.dumps(
+                            networth.get("metadata") or networth.get("Metadata")
+                        )
 
                     # Add extraction metadata
                     for meta_key, meta_value in extraction_metadata.items():
@@ -317,14 +332,17 @@ def extract_networth(
             if should_save_checkpoint():
                 save_checkpoint()
 
-            if len(networths) < limit:
+            # Check if we received a partial page (end of results)
+            if len(networths) < page_size:
+                logger.info("Received partial page. Assuming end of results.")
                 break
 
-            skip += len(networths)
+            # Move to next page
+            page += 1
 
         except Exception as e:
             logger.error(
-                f"Error extracting net worth at offset {skip} - "
+                f"Error extracting net worth at page {page} - "
                 f"batch {batch_counter}: {e}"
             )
             save_checkpoint(status="error")
