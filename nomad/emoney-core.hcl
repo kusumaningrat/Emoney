@@ -14,8 +14,8 @@ job "Emoney-core-App" {
 
     network {
       port "http" {
-        static       = 5640
-        to           = 5640
+        static       = 5730
+        to           = 5730
         host_network = "private"
       }
     }

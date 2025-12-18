@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose port
-EXPOSE 5640
+EXPOSE 5730
 
 # Start the application with debug and reload enabled
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5640", "--log-level", "info"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5730", "--log-level", "info"]
