@@ -53,7 +53,7 @@ job "Emoney-client-App" {
       }
 
       vault {
-        role = "emoney"
+        role = "emoney-advisor"
       }
 
       template {
