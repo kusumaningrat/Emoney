@@ -38,7 +38,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./eMoney-core
-          file: ./eMoney-core/Dockerfile.stage
+          file: ./eMoney-core/Dockerfile
           push: true
           tags: |
             ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
