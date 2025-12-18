@@ -42,7 +42,7 @@ job "Emoney-client-App" {
       driver = "docker"
 
       config {
-        image = "harbor-registry.service.consul:8085/emoney/emoney-client:IMAGE_TAG_PLACEHOLDER"
+        image = "harbor-registry.service.consul:8085/emoney-advisor/emoney-client:IMAGE_TAG_PLACEHOLDER"
         ports = ["http"]
         dns_servers = ["172.17.0.1", "172.18.0.1", "8.8.8.8", "8.8.4.4", "1.1.1.1"]
         auth {
