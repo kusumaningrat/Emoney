@@ -20,10 +20,10 @@ class ScanService:
     
     def _init_connectors(self):
         """Initialize connectors for different EMoney service types"""
-        from app.connectors.emoney_account_connector import EMoneyAccountConnector
-        from app.connectors.emoney_client_connector import EMoneyClientConnector
-        from app.connectors.emoney_financial_planning_connector import EMoneyFinancialPlanningConnector
-        from app.connectors.emoney_identity_connector import EMoneyIdentityConnector
+        from app.connectors.account_connector import EMoneyAccountConnector
+        from app.connectors.client_connector import EMoneyClientConnector
+        from app.connectors.financial_planning_connector import EMoneyFinancialPlanningConnector
+        from app.connectors.identity_connector import EMoneyIdentityConnector
 
         # Initialize all EMoney connectors
         self.connectors = {

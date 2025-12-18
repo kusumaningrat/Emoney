@@ -3,13 +3,13 @@ from typing import Dict, Any, Optional, List
 from app.connectors.api_connector import SimpleAPIConnector
 from app.core.exceptions import ServiceConnectionError
 from app.settings import get_settings
-from app.service_config import STANDARD_ENDPOINTS, WEALTHBOX_SERVICES, DEFAULT_SCAN_CONFIG
+from app.service_config import STANDARD_ENDPOINTS, EMONEY_SERVICES, DEFAULT_SCAN_CONFIG
 
 logger = logging.getLogger(__name__)
 
-class WealthboxAuthConnector:
+class AuthConnector:
     """
-    Connector for Wealthbox Authentication Service data extraction operations.
+    Connector for EMoney Authentication Service data extraction operations.
     Handles authentication entity scanning and data extraction.
     """
     
@@ -29,7 +29,7 @@ class WealthboxAuthConnector:
             logger.error(f"No URL configured for {self.service_key} service in {settings.ENVIRONMENT} environment")
         
         # Get the endpoints for this service
-        self.service_config = WEALTHBOX_SERVICES.get(self.service_key, {})
+        self.service_config = EMONEY_SERVICES.get(self.service_key, {})
         self.endpoints = self.service_config.get("endpoints", STANDARD_ENDPOINTS.copy())
         
         self.api_key = api_key or settings.API_KEY
@@ -39,7 +39,7 @@ class WealthboxAuthConnector:
             timeout=timeout
         )
         
-        logger.info(f"Initialized WealthboxAuthConnector for {self.service_url}")
+        logger.info(f"Initialized AuthConnector for {self.service_url}")
     
     def _get_endpoint_path(self, endpoint_key: str, **path_params) -> str:
         """
@@ -96,19 +96,20 @@ class WealthboxAuthConnector:
     
     async def start_scan(self, scan_config: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Start a data extraction scan for auth entities with Wealthbox OAuth support.
+        Start a data extraction scan for auth entities with EMoney JWT support.
         
-        Expected Wealthbox format:
+        Expected EMoney format:
         {
         "config": {
-            "scanId": "wealthbox-activity-scan-2025-001",
+            "scanId": "emoney-auth-scan-2025-001",
             "organizationId": "org-12345",
-            "type": ["task"],
+            "type": ["auth"],
             "auth": {
-            "client_id": "wealthbox-activity-123456789",
-            "client_secret": "c1ient-s3cret-v4lue-example",
-            "grant_type": "client_credentials",
-            "scope": "read"
+            "api_key": "emoney-api-key-67890",
+            "client_id": "emoney-client-id-12345",
+            "firm_id": "firm-12345",
+            "jwt_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "scope": "API"
             },
             "filters": {
             "dateRange": {
@@ -148,12 +149,13 @@ class WealthboxAuthConnector:
             if isinstance(config["type"], list):
                 config["type"] = [t.lower() if isinstance(t, str) else t for t in config["type"]]
                 
-            # Extract OAuth config for use with the API connector
-            oauth_config = None
+            # Extract EMoney JWT config for use with the API connector
+            jwt_config = None
             if "auth" in config:
-                if all(k in config["auth"] for k in ["client_id", "client_secret"]):
-                    # Using Wealthbox OAuth format
-                    oauth_config = config["auth"]
+                if "jwt_token" in config["auth"]:
+                    # Using EMoney JWT format
+                    jwt_config = config["auth"]
+                    logger.info("EMoney JWT credentials detected, passing through to server for validation")
                     
             # Ensure filters exist with proper structure
             if "filters" not in config:
@@ -177,7 +179,7 @@ class WealthboxAuthConnector:
             # Generate a scanId if not provided
             if "scanId" not in config:
                 import uuid
-                config["scanId"] = f"wealthbox-{self.service_key}-scan-{str(uuid.uuid4())[:8]}"
+                config["scanId"] = f"emoney-{self.service_key}-scan-{str(uuid.uuid4())[:8]}"
                 
             logger.info(f"Starting {self.service_key} scan with ID {config.get('scanId')}")
             logger.debug(f"Scan config: {scan_config}")
@@ -185,11 +187,11 @@ class WealthboxAuthConnector:
             # Get the endpoint path from standard endpoints
             path = self._get_endpoint_path("scan_start")
             
-            # Make the API request with OAuth support if config is provided
+            # Make the API request with JWT support if config is provided
             return await self.connector.post(
                 path, 
                 json_data=scan_config,
-                oauth_config=oauth_config
+                oauth_config=jwt_config  # Pass JWT config for authentication
             )
         except Exception as e:
             logger.error(f"Failed to start {self.service_key} scan: {str(e)}")

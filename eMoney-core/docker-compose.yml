@@ -1,19 +1,19 @@
 version: '3.8'
 
-name : wealthbox-service-orchestrator
+name: emoney-service-orchestrator
 
 services:
   orchestrator:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: service-orchestrator
+    container_name: emoney-service-orchestrator
     restart: unless-stopped
     depends_on:
       - db
     environment:
       # Application settings
-      - APP_NAME=${APP_NAME:-Service Orchestrator}
+      - APP_NAME=${APP_NAME:-EMoney Service Orchestrator}
       - API_VERSION=${API_VERSION:-v1}
       - DEBUG=${DEBUG:-False}
       - ENVIRONMENT=${ENVIRONMENT:-dev}
@@ -24,62 +24,77 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
       
       # Database
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-orchestrator}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-emoney_orchestrator}
       
       # CORS
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
       
-      # Service settings
-      - DEFAULT_SERVICE_TIMEOUT=${DEFAULT_SERVICE_TIMEOUT:-5.0}
+      # EMoney Service settings
+      - DEFAULT_SERVICE_TIMEOUT=${DEFAULT_SERVICE_TIMEOUT:-30.0}
       - SCAN_RESULT_RETENTION_DAYS=${SCAN_RESULT_RETENTION_DAYS:-30}
+      - MAX_RETRY_ATTEMPTS=${MAX_RETRY_ATTEMPTS:-3}
+      - RATE_LIMIT_RETRY_AFTER=${RATE_LIMIT_RETRY_AFTER:-60}
       
-      # Service URLs - Development
-      - CLIENT_URL_DEV=${CLIENT_URL_DEV:-http://host.docker.internal:4642}
-      - OPPORTUNITY_URL_DEV=${OPPORTUNITY_URL_DEV:-http://host.docker.internal:4644}
-      - IDENTITY_URL_DEV=${IDENTITY_URL_DEV:-http://host.docker.internal:4641}
-      - ACTIVITY_URL_DEV=${ACTIVITY_URL_DEV:-http://host.docker.internal:4643}
+      # EMoney Service URLs - Development
+      - EMONEY_ACCOUNT_URL_DEV=${EMONEY_ACCOUNT_URL_DEV:-http://host.docker.internal:4733}
+      - EMONEY_CLIENT_URL_DEV=${EMONEY_CLIENT_URL_DEV:-http://host.docker.internal:4731}
+      - EMONEY_FINANCIAL_PLANNING_URL_DEV=${EMONEY_FINANCIAL_PLANNING_URL_DEV:-http://host.docker.internal:4732}
+      - EMONEY_IDENTITY_URL_DEV=${EMONEY_IDENTITY_URL_DEV:-http://host.docker.internal:4709}
       
-      # Service URLs - Staging
-      - CLIENT_URL_STAGE=${CLIENT_URL_STAGE:-https://client.stage.wealthbox-integration.example.com}
-      - OPPORTUNITY_URL_STAGE=${OPPORTUNITY_URL_STAGE:-https://opportunity.stage.wealthbox-integration.example.com}
-      - IDENTITY_URL_STAGE=${IDENTITY_URL_STAGE:-https://identity.stage.wealthbox-integration.example.com}
-      - ACTIVITY_URL_STAGE=${ACTIVITY_URL_STAGE:-https://activity.stage.wealthbox-integration.example.com}
+      # EMoney Service URLs - Staging
+      - EMONEY_ACCOUNT_URL_STAGE=${EMONEY_ACCOUNT_URL_STAGE:-https://account.stage.emoney-integration.example.com}
+      - EMONEY_CLIENT_URL_STAGE=${EMONEY_CLIENT_URL_STAGE:-https://client.stage.emoney-integration.example.com}
+      - EMONEY_FINANCIAL_PLANNING_URL_STAGE=${EMONEY_FINANCIAL_PLANNING_URL_STAGE:-https://planning.stage.emoney-integration.example.com}
+      - EMONEY_IDENTITY_URL_STAGE=${EMONEY_IDENTITY_URL_STAGE:-https://identity.stage.emoney-integration.example.com}
       
-      # Service URLs - Production
-      - CLIENT_URL_PROD=${CLIENT_URL_PROD:-https://client.wealthbox-integration.example.com}
-      - OPPORTUNITY_URL_PROD=${OPPORTUNITY_URL_PROD:-https://opportunity.wealthbox-integration.example.com}
-      - IDENTITY_URL_PROD=${IDENTITY_URL_PROD:-https://identity.wealthbox-integration.example.com}
-      - ACTIVITY_URL_PROD=${ACTIVITY_URL_PROD:-https://activity.wealthbox-integration.example.com}
+      # EMoney Service URLs - Production
+      - EMONEY_ACCOUNT_URL_PROD=${EMONEY_ACCOUNT_URL_PROD:-https://account.emoney-integration.example.com}
+      - EMONEY_CLIENT_URL_PROD=${EMONEY_CLIENT_URL_PROD:-https://client.emoney-integration.example.com}
+      - EMONEY_FINANCIAL_PLANNING_URL_PROD=${EMONEY_FINANCIAL_PLANNING_URL_PROD:-https://planning.emoney-integration.example.com}
+      - EMONEY_IDENTITY_URL_PROD=${EMONEY_IDENTITY_URL_PROD:-https://identity.emoney-integration.example.com}
+      
+      # EMoney Authentication defaults
+      - EMONEY_DEFAULT_API_KEY=${EMONEY_DEFAULT_API_KEY:-emoney-api-key-67890}
+      - EMONEY_DEFAULT_CLIENT_ID=${EMONEY_DEFAULT_CLIENT_ID:-emoney-client-id-12345}
+      - EMONEY_DEFAULT_FIRM_ID=${EMONEY_DEFAULT_FIRM_ID:-firm-12345}
+      - EMONEY_DEFAULT_SCOPE=${EMONEY_DEFAULT_SCOPE:-API}
+      - EMONEY_JWT_EXPIRY_HOURS=${EMONEY_JWT_EXPIRY_HOURS:-24}
+      
+      # EMoney Batch processing settings
+      - EMONEY_DEFAULT_BATCH_SIZE=${EMONEY_DEFAULT_BATCH_SIZE:-100}
+      - EMONEY_MAX_BATCH_SIZE=${EMONEY_MAX_BATCH_SIZE:-1000}
+      - EMONEY_PAGINATION_LIMIT=${EMONEY_PAGINATION_LIMIT:-100}
       
       # Logging
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
       - "5640:5640"
     networks:
-      - orchestrator-network
+      - emoney-orchestrator-network
     volumes:
       - ./app:/app/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5640/health"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
   db:
     image: postgres:15-alpine
-    container_name: orchestrator-db
+    container_name: emoney-orchestrator-db
     restart: unless-stopped
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-orchestrator}
+      - POSTGRES_DB=${POSTGRES_DB:-emoney_orchestrator}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     ports:
       - "5433:5432"
     networks:
-      - orchestrator-network
+      - emoney-orchestrator-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -88,24 +103,179 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: orchestrator-pgadmin
+    container_name: emoney-orchestrator-pgadmin
     restart: unless-stopped
     environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@example.com}
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@emoney-orchestrator.local}
       - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
     ports:
       - "5050:80"
     networks:
-      - orchestrator-network
+      - emoney-orchestrator-network
     depends_on:
       - db
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+
+  # EMoney Mock Services for Development (Optional)
+  emoney-account-mock:
+    image: wiremock/wiremock:latest
+    container_name: emoney-account-mock
+    restart: unless-stopped
+    ports:
+      - "4733:8080"
+    networks:
+      - emoney-orchestrator-network
+    volumes:
+      - ./mock-services/emoney-account:/home/wiremock
+    command: >
+      --global-response-templating
+      --verbose
+      --port 8080
+      --root-dir /home/wiremock
+    profiles:
+      - dev
+      - mock
+
+  emoney-client-mock:
+    image: wiremock/wiremock:latest
+    container_name: emoney-client-mock
+    restart: unless-stopped
+    ports:
+      - "4731:8080"
+    networks:
+      - emoney-orchestrator-network
+    volumes:
+      - ./mock-services/emoney-client:/home/wiremock
+    command: >
+      --global-response-templating
+      --verbose
+      --port 8080
+      --root-dir /home/wiremock
+    profiles:
+      - dev
+      - mock
+
+  emoney-planning-mock:
+    image: wiremock/wiremock:latest
+    container_name: emoney-planning-mock
+    restart: unless-stopped
+    ports:
+      - "4732:8080"
+    networks:
+      - emoney-orchestrator-network
+    volumes:
+      - ./mock-services/emoney-planning:/home/wiremock
+    command: >
+      --global-response-templating
+      --verbose
+      --port 8080
+      --root-dir /home/wiremock
+    profiles:
+      - dev
+      - mock
+
+  emoney-identity-mock:
+    image: wiremock/wiremock:latest
+    container_name: emoney-identity-mock
+    restart: unless-stopped
+    ports:
+      - "4709:8080"
+    networks:
+      - emoney-orchestrator-network
+    volumes:
+      - ./mock-services/emoney-identity:/home/wiremock
+    command: >
+      --global-response-templating
+      --verbose
+      --port 8080
+      --root-dir /home/wiremock
+    profiles:
+      - dev
+      - mock
+
+  # Redis for EMoney scan caching (Optional)
+  redis:
+    image: redis:7-alpine
+    container_name: emoney-orchestrator-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - emoney-orchestrator-network
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    profiles:
+      - prod
+      - staging
+      - cache
+
+  # EMoney monitoring and observability
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: emoney-orchestrator-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    networks:
+      - emoney-orchestrator-network
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    profiles:
+      - monitoring
+      - prod
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: emoney-orchestrator-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      - emoney-orchestrator-network
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana-datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+      - prod
 
 networks:
-  orchestrator-network:
+  emoney-orchestrator-network:
     driver: bridge
+    name: emoney-orchestrator-network
 
 volumes:
   postgres_data:
+    name: emoney-orchestrator-postgres-data
   pgadmin_data:
+    name: emoney-orchestrator-pgadmin-data
+  redis_data:
+    name: emoney-orchestrator-redis-data
+  prometheus_data:
+    name: emoney-orchestrator-prometheus-data
+  grafana_data:
+    name: emoney-orchestrator-grafana-data

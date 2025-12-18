@@ -417,13 +417,13 @@ async def check_service_health(session: AsyncSession = Depends(get_db)):
         
         # Add API endpoints information
         try:
-            from app.service_config import STANDARD_ENDPOINTS, WEALTHBOX_SERVICES
+            from app.service_config import STANDARD_ENDPOINTS, EMONEY_SERVICES
             
             health_response["endpoints"] = {
                 "standard": {key: endpoint for key, endpoint in STANDARD_ENDPOINTS.items()},
                 "service_specific": {
                     service_name: service_config.get("endpoints", {})
-                    for service_name, service_config in WEALTHBOX_SERVICES.items()
+                    for service_name, service_config in EMONEY_SERVICES.items()
                     if "endpoints" in service_config
                 }
             }

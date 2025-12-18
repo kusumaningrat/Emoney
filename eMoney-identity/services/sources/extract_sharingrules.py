@@ -137,6 +137,8 @@ def extract_sharingrules(
             if isinstance(response, dict):
                 if "sharingrules" in response:
                     sharingrules = response.get("sharingrules", [])
+                elif "sharingRules" in response:  # Handle camelCase variant
+                    sharingrules = response.get("sharingRules", [])
                 elif "Data" in response:
                     sharingrules = response.get("Data", [])
                 else:
@@ -177,15 +179,35 @@ def extract_sharingrules(
                         logger.warning(f"Skipping sharingrule record without SharingRuleID: {rule}")
                         continue
                     
+                    # Validate required fields - UserID and ClientID are critical
+                    user_id = rule.get("UserID")
+                    client_id = rule.get("ClientID")
+                    if not user_id or not client_id:
+                        logger.warning(f"Skipping sharingrule {rule_id} - missing UserID or ClientID: {rule}")
+                        continue
+                    
                     # Create record with lowercase underscore field names for PostgreSQL
+                    # FIXED: Changed sharingrule_id to sharing_rule_id to match database schema
                     sharingrule_record = {
-                        "sharingrule_id": rule_id,
-                        "rule_name": rule.get("RuleName"),
-                        "entity_type": rule.get("EntityType"),
-                        "shared_with_role": rule.get("SharedWithRole"),
-                        "shared_with_user": rule.get("SharedWithUser"),
+                        # Primary identifier - FIXED: added underscore between sharing and rule
+                        "sharing_rule_id": rule_id,
+                        
+                        # User and client relationship (REQUIRED)
+                        "user_id": user_id,
+                        "client_id": client_id,
+                        
+                        # Access control permissions
                         "access_level": rule.get("AccessLevel"),
-                        "is_active": rule.get("IsActive"),
+                        "can_view": rule.get("CanView"),
+                        "can_edit": rule.get("CanEdit"),
+                        "can_delete": rule.get("CanDelete"),
+                        
+                        # Date range for rule validity
+                        "start_date": rule.get("StartDate"),
+                        "end_date": rule.get("EndDate"),
+                        
+                        # Status and metadata
+                        "status": rule.get("Status"),
                         "created_by": rule.get("CreatedBy"),
                         "created_date": rule.get("CreatedDate"),
                         "modified_date": rule.get("ModifiedDate"),

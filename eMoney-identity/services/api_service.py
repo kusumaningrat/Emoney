@@ -203,7 +203,7 @@ class APIService:
         include_permissions: bool = True,
         include_office: bool = True,
         include_logon_history: bool = False,
-        include_sharing_rules: bool = False,
+        include_sharingrules: bool = False,
     ) -> Dict[str, Any]:
         """
         Get specific user by ID
@@ -216,7 +216,7 @@ class APIService:
             include_permissions: Include permissions data
             include_office: Include office data
             include_logon_history: Include recent logon history
-            include_sharing_rules: Include sharing rules
+            include_sharingrules: Include sharing rules
 
         Returns:
             User record with requested includes
@@ -234,7 +234,7 @@ class APIService:
             include_parts.append("office")
         if include_logon_history:
             include_parts.append("logonHistory")
-        if include_sharing_rules:
+        if include_sharingrules:
             include_parts.append("sharingRules")
             
         if include_parts:
@@ -547,7 +547,7 @@ class APIService:
     # ---------------------------
     # SHARING RULE OBJECTS
     # ---------------------------
-    def get_sharing_rules(
+    def get_sharingrules(
         self,
         page: int = 1,
         page_size: int = 100,
@@ -588,9 +588,9 @@ class APIService:
             
         return self._make_request(endpoint, params)
 
-    def get_sharing_rule(
+    def get_sharingrule(
         self, 
-        sharing_rule_id: str,
+        sharingrule_id: str,
         include_user: bool = True,
         include_shared_with_user: bool = True,
     ) -> Dict[str, Any]:
@@ -600,14 +600,14 @@ class APIService:
         Endpoint: GET /sharingrules/{sharingRuleId}
         
         Args:
-            sharing_rule_id: Sharing Rule ID
+            sharingrule_id: Sharing Rule ID
             include_user: Include owner user details
             include_shared_with_user: Include shared with user details
 
         Returns:
             Sharing rule record
         """
-        endpoint = f"{self.EMONEY_SHARINGRULES_ENDPOINT}/{sharing_rule_id}"
+        endpoint = f"{self.EMONEY_SHARINGRULES_ENDPOINT}/{sharingrule_id}"
         params = {}
         
         # Build include parameter
@@ -622,7 +622,7 @@ class APIService:
             
         return self._make_request(endpoint, params)
 
-    def get_user_sharing_rules(
+    def get_user_sharingrules(
         self,
         user_id: str,
         resource_type: Optional[str] = None,
