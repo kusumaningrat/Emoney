@@ -1,5 +1,5 @@
 <!-- Client Scan -->
-
+.
 
 {
   "scan_type": "client",
