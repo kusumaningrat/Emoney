@@ -53,7 +53,7 @@ class Config:
     EMONEY_ACCOUNT_TYPES_ENDPOINT = "/account-types"
     EMONEY_LIABILITIES_ENDPOINT = "/liabilities"
     EMONEY_ASSETS_ENDPOINT = "/assets"
-    EMONEY_ASSET_CLASSES_ENDPOINT = "/asset-classes"
+    EMONEY_ASSET_CLASSES_ENDPOINT = "/assetclasses"
 
     # HMAC authentication settings
     HMAC_SECRET_KEY = os.environ.get('HMAC_SECRET_KEY', 'change-this-in-production')

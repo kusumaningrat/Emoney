@@ -121,8 +121,7 @@ class EMoneyClientConnector:
                         "startDate": "2025-01-01",
                         "endDate": "2025-12-31"
                     },
-                    "batchSize": 100,
-                    "includeInactive": false
+                    "batchSize": 100
                 }
             }
         }
@@ -249,10 +248,13 @@ class EMoneyClientConnector:
             batch_size = config["filters"].get("batchSize", 100)
             config["filters"]["batchSize"] = batch_size
             
-            # Handle includeInactive for EMoney client service
-            include_inactive = config["filters"].get("includeInactive", False)
-            config["filters"]["includeInactive"] = include_inactive
-            logger.debug(f"EMoney client filters - batchSize: {batch_size}, includeInactive: {include_inactive}")
+            # FIXED: Remove includeInactive as the mock service doesn't support it
+            # If it was in the filters, remove it
+            if "includeInactive" in config["filters"]:
+                del config["filters"]["includeInactive"]
+                logger.debug(f"Removed unsupported 'includeInactive' filter")
+            
+            logger.debug(f"EMoney client filters - batchSize: {batch_size}")
                 
             # Generate a scanId if not provided
             if "scanId" not in config:

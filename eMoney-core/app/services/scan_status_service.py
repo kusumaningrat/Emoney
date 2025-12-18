@@ -20,6 +20,7 @@ class ScanStatusService:
     def _init_connectors(self):
         """Initialize connectors for different EMoney service types"""
         from app.connectors.account_connector import EMoneyAccountConnector
+        from app.connectors.client_connector import EMoneyClientConnector  # FIXED: Added missing import
         from app.connectors.financial_planning_connector import EMoneyFinancialPlanningConnector
         from app.connectors.identity_connector import EMoneyIdentityConnector
         from app.connectors.auth_connector import AuthConnector
@@ -27,6 +28,7 @@ class ScanStatusService:
         # Initialize all EMoney connectors
         self.connectors = {
             "account": EMoneyAccountConnector(),
+            "client": EMoneyClientConnector(),  # FIXED: Added missing client connector
             "financial_planning": EMoneyFinancialPlanningConnector(),
             "identity": EMoneyIdentityConnector(),
             "auth": AuthConnector()
@@ -36,7 +38,11 @@ class ScanStatusService:
         """Get the appropriate connector for the EMoney scan type"""
         connector = self.connectors.get(scan_type)
         if not connector:
-            raise ValueError(f"No connector available for EMoney scan type: {scan_type}")
+            available_types = ", ".join(self.connectors.keys())
+            raise ValueError(
+                f"No connector available for EMoney scan type: {scan_type}. "
+                f"Available types: {available_types}"
+            )
         return connector
     
     async def start_entity_polling(self, entity_result: ScanEntityResult, scan_type: str, max_duration: int = 3600):
@@ -45,7 +51,7 @@ class ScanStatusService:
         
         Args:
             entity_result: ScanEntityResult to poll
-            scan_type: Type of EMoney scan (account, financial_planning, identity, auth)
+            scan_type: Type of EMoney scan (account, client, financial_planning, identity, auth)
             max_duration: Maximum polling duration in seconds (default 1 hour)
         """
         entity_id = entity_result.id
