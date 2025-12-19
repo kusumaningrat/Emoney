@@ -1,5 +1,6 @@
 <!-- Client Scan -->
 
+.
 {
 "scan_type": "client",
 "entity_types": [

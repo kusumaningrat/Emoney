@@ -86,6 +86,7 @@ EMONEY_JWT_EXPIRY_HOURS="{{ with secret "secrets/emoney/emoney-core" }}{{ .Data.
 EMONEY_DEFAULT_BATCH_SIZE="{{ with secret "secrets/emoney/emoney-core" }}{{ .Data.data.EMONEY_DEFAULT_BATCH_SIZE }}{{ end }}"
 EMONEY_MAX_BATCH_SIZE="{{ with secret "secrets/emoney/emoney-core" }}{{ .Data.data.EMONEY_MAX_BATCH_SIZE }}{{ end }}"
 EMONEY_PAGINATION_LIMIT="{{ with secret "secrets/emoney/emoney-core" }}{{ .Data.data.EMONEY_PAGINATION_LIMIT }}{{ end }}"
+HMAC_ENABLED="{{ with secret "secrets/emoney/emoney-core" }}{{ .Data.data.HMAC_ENABLED }}{{ end }}"
 LOG_LEVEL="{{ with secret "secrets/emoney/emoney-core" }}{{ .Data.data.LOG_LEVEL }}{{ end }}"
 EOF
       }
