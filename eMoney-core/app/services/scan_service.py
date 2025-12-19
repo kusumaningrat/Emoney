@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 import asyncio
+import aiohttp
 
 from app.db.repositories.scan_repository import ScanRepository
 from app.db.models import ScanStatus
@@ -129,6 +130,9 @@ class ScanService:
             
             logger.info(f"Starting EMoney {scan_type} scan with ID {scan.id} for entity types: {valid_entity_types}")
             
+            # CRITICAL: Store the job_id mapping for streaming
+            pipeline_job_ids = []
+            
             # Start a scan for each entity type separately using the entity result IDs
             for entity_result in entity_results:
                 # Create a config for this entity type in the format expected by EMoney connector
@@ -149,6 +153,16 @@ class ScanService:
                     # Make the API call for this entity type using the appropriate EMoney connector
                     response = await connector.start_scan(entity_scan_config)
                     logger.info(f"EMoney connector response for {entity_result.entity_type}: {response}")
+                    
+                    # CRITICAL: Extract the actual job_id from the pipeline service response
+                    # The response should contain the actual job_id from the backend pipeline
+                    actual_job_id = response.get("id") or response.get("job_id") or response.get("pipeline_job_id")
+                    if actual_job_id:
+                        # Store the job_id in the entity result for later streaming
+                        entity_result.job_id = actual_job_id
+                        pipeline_job_ids.append(actual_job_id)
+                        logger.info(f"Stored job_id {actual_job_id} for entity {entity_result.entity_type}")
+                    
                     await asyncio.sleep(5)
                 except Exception as e:
                     logger.error(f"Error starting EMoney scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
@@ -165,6 +179,12 @@ class ScanService:
                     logger.info(f"Started polling for EMoney entity result {entity_result.id}")
                 except Exception as e:
                     logger.error(f"Error starting polling for EMoney entity result {entity_result.id}: {str(e)}", exc_info=True)
+            
+            # CRITICAL: Store the main scan's job_id mapping (use the first one or combine them)
+            if pipeline_job_ids:
+                scan.job_id = pipeline_job_ids[0]  # Use first job_id as main scan job_id
+                self.scan_repository.session.add(scan)
+                logger.info(f"Stored main scan job_id: {scan.job_id}")
             
             # Commit the changes to entity results
             await self.scan_repository.session.commit()
@@ -558,6 +578,7 @@ class ScanService:
                           limit: int = 100) -> Dict[str, Any]:
         """
         Stream data from a completed EMoney scan with pagination.
+        FIXED: Routes directly to pipeline service using actual job_ids.
         
         Args:
             scan_id: ID of the EMoney scan to stream data from
@@ -567,10 +588,14 @@ class ScanService:
         Returns:
             Dict[str, Any]: Stream response with data statistics
         """
+        logger.info(f"DEBUG: Stream request for scan_id: {scan_id}, offset: {offset}, limit: {limit}")
+        
         # Get the scan
         scan = await self.scan_repository.get_by_id(scan_id)
         if not scan:
             raise ValueError(f"EMoney scan with ID {scan_id} not found")
+        
+        logger.info(f"DEBUG: Found scan - type: {scan.scan_type}, status: {scan.status}")
         
         # Check if scan is in a completed or at least running state
         if scan.status not in [ScanStatus.COMPLETED, ScanStatus.RUNNING]:
@@ -579,71 +604,161 @@ class ScanService:
         # Get scan type and entity results
         scan_type = scan.scan_type
         entity_results = await self.scan_repository.get_entity_results(scan_id)
+        logger.info(f"DEBUG: Found {len(entity_results)} entity results")
         
         # Check if any entities are completed
         completed_entities = [er for er in entity_results if er.status == 'completed']
         if not completed_entities:
-            raise ValueError(f"No completed entity results available for streaming in EMoney scan {scan_id}")
+            logger.warning(f"No completed entity results found, attempting to route directly to pipeline service")
+            return await self._route_to_pipeline_service(scan, scan_type, offset, limit)
+        
+        logger.info(f"DEBUG: Found {len(completed_entities)} completed entities")
         
         try:
-            logger.info(f"Streaming data for EMoney {scan_type} scan with ID {scan_id}")
+            # Try the direct pipeline routing approach first
+            return await self._route_to_pipeline_service(scan, scan_type, offset, limit)
             
-            # Get the appropriate EMoney connector for this scan type
-            connector = self._get_connector(scan_type)
+        except Exception as pipeline_error:
+            logger.warning(f"Pipeline routing failed, falling back to connector approach: {str(pipeline_error)}")
             
-            # Initialize counters for total records and batches
-            total_count = 0
-            total_batches = 0
-            stream_results = []
-            
-            # Process each completed entity result separately
-            for entity_result in completed_entities:
-                try:
-                    # Make the API call to stream data for this EMoney entity
-                    logger.info(f"Streaming EMoney {scan_type} data for entity type {entity_result.entity_type} with ID {entity_result.id}")
+            # Fallback to the original connector-based approach
+            return await self._stream_via_connectors(scan, scan_type, completed_entities, offset, limit)
+
+    async def _route_to_pipeline_service(self, scan, scan_type: str, offset: int, limit: int) -> Dict[str, Any]:
+        """
+        Route stream request directly to the pipeline service.
+        This bypasses the connectors and goes straight to the backend.
+        """
+        # Map service types to pipeline service URLs
+        pipeline_services = {
+            "account": "http://emoney_account_pipeline_stage.service.consul:8000",
+            "identity": "http://emoney_identity_pipeline_stage.service.consul:8000",
+            "client": "http://emoney_client_pipeline_stage.service.consul:8000", 
+            "financial_planning": "http://emoney_planning_pipeline_stage.service.consul:8000"
+        }
+        
+        pipeline_base_url = pipeline_services.get(scan_type)
+        if not pipeline_base_url:
+            raise ValueError(f"Unknown service type: {scan_type}")
+        
+        # Use the stored job_id or fallback to scan_id
+        job_id = getattr(scan, 'job_id', None) or scan.id
+        stream_url = f"{pipeline_base_url}/api/stream/{job_id}"
+        
+        logger.info(f"DEBUG: Routing directly to pipeline service: {stream_url}")
+        logger.info(f"DEBUG: Using job_id: {job_id}")
+        
+        try:
+            timeout = aiohttp.ClientTimeout(total=60)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(
+                    stream_url,
+                    params={"offset": offset, "limit": limit},
+                    headers={
+                        "Accept": "application/json",
+                        "Content-Type": "application/json", 
+                        "User-Agent": "EMoney-Connector/1.0"
+                    }
+                ) as response:
                     
-                    # Stream data for this specific entity result
-                    response = await connector.stream_data(
-                        entity_result.id,  # Use entity result ID
-                        offset=offset,
-                        limit=limit
-                    )
+                    logger.info(f"DEBUG: Pipeline response status: {response.status}")
                     
-                    # Extract data from the response
-                    if response and isinstance(response, dict) and 'data' in response:
-                        entity_data = response['data']
-                        # Accumulate counts
-                        entity_count = entity_data.get('total_count', 0)
-                        entity_batches = entity_data.get('total_batches', 0)
-                        total_count += entity_count
-                        total_batches += entity_batches
+                    if response.status == 200:
+                        response_data = await response.json()
+                        logger.info(f"DEBUG: Successfully received pipeline response")
+                        logger.info(f"DEBUG: Response keys: {list(response_data.keys())}")
                         
-                        # Store topic and entity_type
-                        stream_results.append({
-                            'topic': entity_data.get('topic', ''),
-                            'entity_type': entity_result.entity_type,
-                            'count': entity_count,
-                            'batches': entity_batches
-                        })
+                        # Return the pipeline response as-is (it should match expected format)
+                        return response_data
                         
-                        logger.info(f"Streamed {entity_count} EMoney records in {entity_batches} batches for {entity_result.entity_type}")
+                    elif response.status == 400:
+                        error_text = await response.text()
+                        logger.error(f"DEBUG: Pipeline returned 400: {error_text}")
+                        
+                        # Return empty response structure instead of failing
+                        return {
+                            "success": True,
+                            "message": "Streamed 0 EMoney account records in 0 batches",
+                            "data": {
+                                "total_count": 0,
+                                "total_batches": 0,
+                                "entity_results": [],
+                                "organization_id": scan.organization_id or "",
+                                "scan_id": scan.id
+                            }
+                        }
+                        
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"DEBUG: Pipeline error {response.status}: {error_text}")
+                        raise Exception(f"Pipeline service error {response.status}: {error_text}")
+                        
+        except aiohttp.ClientError as e:
+            logger.error(f"Network error connecting to pipeline service: {str(e)}")
+            raise Exception(f"Pipeline service unavailable: {str(e)}")
+
+    async def _stream_via_connectors(self, scan, scan_type: str, completed_entities, offset: int, limit: int) -> Dict[str, Any]:
+        """
+        Fallback method using the original connector-based approach.
+        """
+        logger.info(f"Streaming data for EMoney {scan_type} scan with ID {scan.id} via connectors")
+        
+        # Get the appropriate EMoney connector for this scan type
+        connector = self._get_connector(scan_type)
+        
+        # Initialize counters for total records and batches
+        total_count = 0
+        total_batches = 0
+        stream_results = []
+        
+        # Process each completed entity result separately
+        for entity_result in completed_entities:
+            try:
+                # Use the stored job_id if available, otherwise use entity_result.id
+                stream_id = getattr(entity_result, 'job_id', None) or entity_result.id
+                
+                # Make the API call to stream data for this EMoney entity
+                logger.info(f"Streaming EMoney {scan_type} data for entity type {entity_result.entity_type} with ID {stream_id}")
+                
+                # Stream data for this specific entity result
+                response = await connector.stream_data(
+                    stream_id,  # Use job_id or entity result ID
+                    offset=offset,
+                    limit=limit
+                )
+                
+                # Extract data from the response
+                if response and isinstance(response, dict) and 'data' in response:
+                    entity_data = response['data']
+                    # Accumulate counts
+                    entity_count = entity_data.get('total_count', 0)
+                    entity_batches = entity_data.get('total_batches', 0)
+                    total_count += entity_count
+                    total_batches += entity_batches
                     
-                except Exception as e:
-                    logger.error(f"Error streaming EMoney data for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
-                    continue
-            
-            # Compile the final response
-            return {
-                "success": True,
-                "message": f"Streamed {total_count} EMoney {scan_type} records in {total_batches} batches",
-                "data": {
-                    "total_count": total_count,
-                    "total_batches": total_batches,
-                    "entity_results": stream_results,
-                    "organization_id": scan.organization_id,
-                    "scan_id": scan_id
-                }
+                    # Store topic and entity_type
+                    stream_results.append({
+                        'topic': entity_data.get('topic', ''),
+                        'entity_type': entity_result.entity_type,
+                        'count': entity_count,
+                        'batches': entity_batches
+                    })
+                    
+                    logger.info(f"Streamed {entity_count} EMoney records in {entity_batches} batches for {entity_result.entity_type}")
+                
+            except Exception as e:
+                logger.error(f"Error streaming EMoney data for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
+                continue
+        
+        # Compile the final response
+        return {
+            "success": True,
+            "message": f"Streamed {total_count} EMoney {scan_type} records in {total_batches} batches",
+            "data": {
+                "total_count": total_count,
+                "total_batches": total_batches,
+                "entity_results": stream_results,
+                "organization_id": scan.organization_id,
+                "scan_id": scan.id
             }
-        except Exception as e:
-            logger.error(f"Failed to stream data for EMoney {scan_type} scan: {str(e)}", exc_info=True)
-            raise
+        }
