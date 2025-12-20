@@ -275,7 +275,7 @@ services:
 
       # Kafka Configuration
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - KAFKA_ENABLED=false
+      - KAFKA_ENABLED=true
       - KAFKA_TOPIC_1=emoney-clients-stream
 
     ports:
@@ -363,7 +363,7 @@ services:
 
       # Kafka Configuration
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - KAFKA_ENABLED=false
+      - KAFKA_ENABLED=true
       - KAFKA_TOPIC_1=emoney-clients-stream
     ports:
       - "5731:5731"
@@ -449,7 +449,7 @@ services:
 
       # Kafka Configuration
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - KAFFKA_ENABLED=false
+      - KAFKA_ENABLED=true
       - KAFKA_TOPIC_1=emoney-clients-stream
     ports:
       - "3731:3731"
