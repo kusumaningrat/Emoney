@@ -276,7 +276,7 @@ services:
 
       # Kafka Configuration
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - KAFKA_ENABLED=false
+      - KAFKA_ENABLED=true
       - KAFKA_TOPIC_1=orion-users-stream
 
     ports:
@@ -365,7 +365,7 @@ services:
 
       # Kafka Configuration
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - KAFKA_ENABLED=false
+      - KAFKA_ENABLED=true
       - KAFKA_TOPIC_1=orion-users-stream
     ports:
       - "5709:5709"
@@ -451,7 +451,7 @@ services:
 
       # Kafka Configuration
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - KAFFKA_ENABLED=false
+      - KAFKA_ENABLED=true
       - KAFKA_TOPIC_1=orion-users-stream
     ports:
       - "3709:3709"

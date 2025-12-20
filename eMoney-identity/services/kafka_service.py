@@ -31,13 +31,14 @@ class KafkaStreamService:
         # Set default status
         self.producer_available = False
         
-        # FIXED: Identity-only topic mapping
+        # FIXED: Identity-only topic mapping - ADDED sharingrule
         self.topics = {
             # Identity entities
             'user': os.environ.get('KAFKA_TOPIC_USER', 'emoney_identity_user'),
             'office': os.environ.get('KAFKA_TOPIC_OFFICE', 'emoney_identity_office'),
             'role': os.environ.get('KAFKA_TOPIC_ROLE', 'emoney_identity_role'),
             'permission': os.environ.get('KAFKA_TOPIC_PERMISSION', 'emoney_identity_permission'),
+            'sharingrule': os.environ.get('KAFKA_TOPIC_SHARINGRULE', 'emoney_identity_sharingrule'),  # ADDED
             'logon': os.environ.get('KAFKA_TOPIC_LOGON', 'emoney_identity_logon'),
             
             # Keep legacy topics for backward compatibility
