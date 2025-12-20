@@ -1,5 +1,5 @@
 """
-Kafka Stream Service - Automatic entity type detection from status
+Kafka Stream Service - Identity entities only mapping
 """
 
 import os
@@ -31,10 +31,16 @@ class KafkaStreamService:
         # Set default status
         self.producer_available = False
         
-        # Topic mapping
-        # Map entity types to Kafka topics
-        # These environment variable names are placeholders; customize as needed
+        # FIXED: Identity-only topic mapping
         self.topics = {
+            # Identity entities
+            'user': os.environ.get('KAFKA_TOPIC_USER', 'emoney_identity_user'),
+            'office': os.environ.get('KAFKA_TOPIC_OFFICE', 'emoney_identity_office'),
+            'role': os.environ.get('KAFKA_TOPIC_ROLE', 'emoney_identity_role'),
+            'permission': os.environ.get('KAFKA_TOPIC_PERMISSION', 'emoney_identity_permission'),
+            'logon': os.environ.get('KAFKA_TOPIC_LOGON', 'emoney_identity_logon'),
+            
+            # Keep legacy topics for backward compatibility
             'topic_1': os.environ.get('KAFKA_TOPIC_1', 'kafka_topic_1'),
             'topic_2': os.environ.get('KAFKA_TOPIC_2', 'kafka_topic_2'),
             'topic_3': os.environ.get('KAFKA_TOPIC_3', 'kafka_topic_3'),
@@ -143,9 +149,30 @@ class KafkaStreamService:
         """
         return [self._transform_record(record) for record in records]
     
+    def get_available_topics(self) -> Dict[str, str]:
+        """
+        Get list of available topics for debugging
+        
+        Returns:
+            Dictionary of entity_type -> topic_name mappings
+        """
+        return self.topics.copy()
+    
+    def is_entity_type_supported(self, entity_type: str) -> bool:
+        """
+        Check if an entity type is supported (has a Kafka topic mapping)
+        
+        Args:
+            entity_type: The entity type to check
+            
+        Returns:
+            True if supported, False otherwise
+        """
+        return entity_type.lower() in self.topics
+    
     def stream_scan_data(self, scan_id: str, batch_size: int = 100, offset: int = 0) -> Dict:
         """
-        Stream scan data of specific entity type to Kafka
+        Stream scan data of specific entity type to Kafka with improved error handling
         
         Args:
             scan_id: ID of the scan
@@ -183,11 +210,13 @@ class KafkaStreamService:
         
         entity_type = entity_type.lower()
         
-        # Validate topic exists
+        # IMPROVED: Better error message with available types
         if entity_type not in self.topics:
+            available_types = ", ".join(sorted(self.topics.keys()))
+            self.logger.error(f"Entity type '{entity_type}' not found. Available types: {available_types}")
             return {
                 "success": False,
-                "message": f"Invalid entity type: {entity_type}. No matching Kafka topic."
+                "message": f"Invalid entity type: {entity_type}. Available types: {available_types}"
             }, 400
         
         # Get organization ID
@@ -200,7 +229,16 @@ class KafkaStreamService:
         total_batches = 0
         total_records = None  # Will be set from pagination info
         
+        self.logger.info(f"Streaming {entity_type} data from scan {scan_id} to topic {topic}")
+        
         try:
+            # Check if Kafka is available
+            if not self.producer_available:
+                return {
+                    "success": False,
+                    "message": "Kafka producer is not available"
+                }, 503
+            
             # Send initial message
             init_message = {
                 'scan_id': scan_id,
@@ -325,6 +363,8 @@ class KafkaStreamService:
             completion_key = f"{scan_id}_{entity_type}_complete"
             self.producer.send(topic, key=completion_key, value=completion_message)
             self.producer.flush()
+            
+            self.logger.info(f"Successfully streamed {total_count} {entity_type} records in {total_batches} batches to {topic}")
             
             # Return success
             return {
