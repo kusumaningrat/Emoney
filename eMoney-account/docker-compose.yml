@@ -275,7 +275,7 @@ services:
 
       #  Kafka Configuration
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
-      - KAFKA_ENABLED=false
+      - KAFKA_ENABLED=true
       - KAFKA_TOPIC_1=emoney-accounts-stream
 
     ports:
