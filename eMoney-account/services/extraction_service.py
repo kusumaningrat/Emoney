@@ -316,8 +316,6 @@ class ExtractionService:
     async def _execute_scan(self, job_id: str):
         """Execute the data extraction pipeline with isolated pipeline to prevent race conditions"""
         working_dir = None
-        pipeline_completed_successfully = False
-        
         try:
             job = self.job_service.get_job(job_id, decrypt=True)
             if not job:
@@ -374,14 +372,6 @@ class ExtractionService:
                 organization_id=job["organizationId"]
             )
 
-            # CRITICAL FIX: Mark that pipeline completed successfully
-            pipeline_completed_successfully = True
-            
-            self.logger.info(
-                "Pipeline execution completed successfully",
-                extra={"operation": "execute_scan", "job_id": job_id},
-            )
-
             # Check job status after pipeline completion
             current_job = self.job_service.get_job(job_id)
             if not current_job:
@@ -392,21 +382,8 @@ class ExtractionService:
                 return
 
             current_status = current_job.get("status")
-            
-            self.logger.info(
-                "Checking job status after pipeline completion",
-                extra={
-                    "operation": "execute_scan",
-                    "job_id": job_id,
-                    "current_status": current_status,
-                    "pipeline_completed": pipeline_completed_successfully
-                },
-            )
 
-            # CRITICAL FIX: Only skip completion if job was explicitly cancelled or paused DURING execution
-            # If the pipeline completed successfully, we should mark it as completed
-            # unless the user explicitly paused/cancelled it
-            
+            # Don't mark as completed if job was cancelled
             if current_status == JobStatus.CANCELLED.value:
                 self.logger.info(
                     "Job was cancelled during execution, keeping cancelled status",
@@ -414,6 +391,7 @@ class ExtractionService:
                 )
                 return
 
+            # Don't mark as completed if job was paused
             if current_status == JobStatus.PAUSED.value:
                 self.logger.info(
                     "Job was paused during execution, keeping paused status",
@@ -421,76 +399,63 @@ class ExtractionService:
                 )
                 return
 
-            # Get final record count from checkpoint
+            # Check if the latest checkpoint indicates a pause
             latest_checkpoint = self.job_service.get_latest_checkpoint(job_id)
-            records_extracted = 0
-            
             if latest_checkpoint:
-                records_extracted = latest_checkpoint.get("records_processed", 0)
                 checkpoint_phase = latest_checkpoint.get("phase", "")
-                
-                # CRITICAL FIX: Only check for "paused" if the checkpoint explicitly says so
-                # AND the current status is actually paused
-                if "paused" in checkpoint_phase.lower() and current_status == JobStatus.PAUSED.value:
+                if "paused" in checkpoint_phase.lower():
                     self.logger.info(
-                        "Pipeline stopped due to pause (confirmed by checkpoint and status)",
+                        "Pipeline stopped due to pause, keeping paused status",
                         extra={
                             "operation": "execute_scan",
                             "job_id": job_id,
                             "checkpoint_phase": checkpoint_phase,
-                            "current_status": current_status,
                         },
                     )
+                    # Ensure job status is paused
+                    self.job_service.update_job_status(job_id, JobStatus.PAUSED)
                     return
-            
-            # CRITICAL FIX: If we reach here and the pipeline completed successfully,
-            # mark the job as completed regardless of other conditions
-            if pipeline_completed_successfully:
-                # Build completion metadata
-                metadata = {
-                    "pipeline_name": pipeline.pipeline_name,
-                    "destination": "postgres",
-                    "dataset_name": pipeline.dataset_name,
-                    "source_type": self.source_type,
-                    "extraction_summary": {"total_records": records_extracted},
-                    "completed_at": datetime.now(timezone.utc).isoformat(),
-                }
 
-                # Mark job as completed
-                self.job_service.complete_job(job_id, records_extracted, metadata)
+            # Get final record count
+            records_extracted = (
+                latest_checkpoint.get("recordsProcessed", 0)
+                if latest_checkpoint
+                else 0
+            )
 
-                self.logger.info(
-                    "Scan completed successfully",
-                    extra={
-                        "operation": "execute_scan",
-                        "job_id": job_id,
-                        "records_extracted": records_extracted,
-                        "final_status": "completed"
-                    },
-                )
+            # Build completion metadata
+            metadata = {
+                "pipeline_name": pipeline.pipeline_name,
+                "destination": "postgres",
+                "dataset_name": pipeline.dataset_name,
+                "source_type": self.source_type,
+                "extraction_summary": {"total_records": records_extracted},
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }
 
-                log_business_event(
-                    self.logger,
-                    "scan_completed",
-                    job_id=job_id,
-                    records_extracted=records_extracted,
-                )
-            else:
-                # This should never happen, but log it just in case
-                self.logger.warning(
-                    "Pipeline execution finished but completion flag not set",
-                    extra={"operation": "execute_scan", "job_id": job_id},
-                )
+            # Only complete if pipeline actually finished normally
+            self.job_service.complete_job(job_id, records_extracted, metadata)
+
+            self.logger.info(
+                "Scan completed successfully",
+                extra={
+                    "operation": "execute_scan",
+                    "job_id": job_id,
+                    "records_extracted": records_extracted,
+                },
+            )
+
+            log_business_event(
+                self.logger,
+                "scan_completed",
+                job_id=job_id,
+                records_extracted=records_extracted,
+            )
 
         except Exception as e:
             self.logger.error(
                 "Scan execution failed",
-                extra={
-                    "operation": "execute_scan",
-                    "job_id": job_id,
-                    "error": str(e),
-                    "pipeline_completed": pipeline_completed_successfully
-                },
+                extra={"operation": "execute_scan", "job_id": job_id, "error": str(e)},
                 exc_info=True,
             )
 
@@ -509,15 +474,6 @@ class ExtractionService:
             # Always cleanup pipeline working directory
             if working_dir:
                 cleanup_pipeline_working_dir(working_dir)
-                
-            self.logger.info(
-                "Scan execution cleanup completed",
-                extra={
-                    "operation": "execute_scan",
-                    "job_id": job_id,
-                    "pipeline_completed": pipeline_completed_successfully
-                },
-            )
 
     def pause_scan(self, scan_id: str) -> Dict[str, Any]:
         return self.job_service.pause_job(scan_id)
