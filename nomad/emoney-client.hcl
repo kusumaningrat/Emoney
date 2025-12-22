@@ -35,7 +35,7 @@ job "Emoney-client-App" {
 
     constraint {
       attribute = "${attr.unique.hostname}"
-      value     = "Worker-02"
+      value     = "Worker-01"
     }
 
     task "emoney-client" {
