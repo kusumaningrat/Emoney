@@ -484,6 +484,64 @@ def get_household_networth(
 # SPOUSE ENDPOINTS
 # ============================================================================
 
+@router.get("/spouse")
+def get_spouses(
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(100, ge=1, le=500),
+    status: Optional[str] = Query(None),
+    includeClient: bool = Query(False),
+    db: Session = Depends(get_db)
+):
+    """List all spouses with pagination and filtering"""
+    try:
+        service = SpouseService()
+        skip = (page - 1) * pageSize
+        
+        # Get spouses with filtering (service only supports status filter)
+        spouses = service.get_all(
+            db, 
+            skip=skip, 
+            limit=pageSize,
+            status=status
+        )
+        
+        # Convert to dict
+        spouses_data = [model_to_dict(s) for s in spouses]
+        
+        # Include client information if requested
+        if includeClient:
+            client_service = ClientService()
+            for i, spouse in enumerate(spouses):
+                try:
+                    if hasattr(spouse, 'client_id') and spouse.client_id:
+                        client = client_service.get_by_id(db, spouse.client_id)
+                        if client:
+                            spouses_data[i]['client'] = model_to_dict(client)
+                except Exception:
+                    spouses_data[i]['client'] = None
+        
+        # Get total count for pagination
+        all_spouses = service.get_all(db, status=status)
+        total = len(all_spouses)
+        
+        return {
+            "spouses": spouses_data,
+            "total": total,
+            "page": page,
+            "pageSize": len(spouses_data),
+            "totalPages": (total + pageSize - 1) // pageSize if total > 0 else 0
+        }
+    
+    except Exception as e:
+        # Log the error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_spouses: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error fetching spouses: {str(e)}"
+        )
+
 @router.get("/spouse/{spouseId}")
 def get_spouse(
     spouseId: str = Path(...),
@@ -827,3 +885,5 @@ def get_household_financial_summary(
     result['accounts'] = []      # Version 4
     result['assets'] = []        # Version 4
     result['liabilities'] = []   # Version 4
+    
+    return result
