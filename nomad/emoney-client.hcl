@@ -1,7 +1,7 @@
 job "Emoney-client-App" {
   datacenters = ["glynac-dc"]
-  type = "service"
-  namespace = "extraction-service"
+  type        = "service"
+  namespace   = "extraction-service"
 
   update {
     max_parallel     = 1
@@ -26,10 +26,10 @@ job "Emoney-client-App" {
       port = "http"
       check {
         name     = "api-health"
-        type     = "tcp"
-        port     = "http"
-        interval = "15s"
-        timeout  = "5s"
+        type     = "http"
+        path     = "/api/health"
+        interval = "30s"
+        timeout  = "10s"
       }
     }
 
@@ -42,12 +42,12 @@ job "Emoney-client-App" {
       driver = "docker"
 
       config {
-        image = "harbor-registry.service.consul:8085/emoney-advisor/emoney-client:IMAGE_TAG_PLACEHOLDER"
-        ports = ["http"]
+        image       = "harbor-registry.service.consul:8085/emoney-advisor/emoney-client:IMAGE_TAG_PLACEHOLDER"
+        ports       = ["http"]
         dns_servers = ["172.17.0.1", "172.18.0.1", "8.8.8.8", "8.8.4.4", "1.1.1.1"]
         auth {
-          username = "admin"
-          password = "GlynacP455"
+          username       = "admin"
+          password       = "GlynacP455"
           server_address = "harbor-registry.service.consul:8085"
         }
       }
@@ -59,7 +59,7 @@ job "Emoney-client-App" {
       template {
         destination = "secrets/env"
         env         = true
-        data = <<EOF
+        data        = <<EOF
 
 APP_VERSION="{{ with secret "secrets/emoney/emoney-client" }}{{ .Data.data.APP_VERSION }}{{ end }}"
 APP_TITLE="{{ with secret "secrets/emoney/emoney-client" }}{{ .Data.data.APP_TITLE }}{{ end }}"
