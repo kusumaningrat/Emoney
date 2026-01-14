@@ -1,0 +1,680 @@
+import os
+from typing import Dict, Any
+
+
+class Config:
+    """Base application configuration"""
+    APP_VERSION = os.environ.get('APP_VERSION', '1.0.0')
+    APP_TITLE = os.environ.get('APP_TITLE', 'emoney Data Extraction Service')
+    APP_DESCRIPTION = os.environ.get('APP_DESCRIPTION', 'Service for extracting and loading emoney service data using DLT')
+
+    # Flask settings
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production-immediately')
+    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    TESTING = False
+    
+    # Encryption settings
+    ENCRYPTION_ENABLED = os.environ.get('ENCRYPTION_ENABLED', 'True').lower() == 'true'
+    ENCRYPTION_PASSWORD = os.environ.get('CONFIG_PASSWORD', 'default-password-change-in-production')
+    ENCRYPTION_ALGORITHM = os.environ.get('CONFIG_ENCRYPTION_ALGORITHM', 'SHA512')
+
+    # Server settings
+    HOST = os.environ.get('HOST', '0.0.0.0')
+    PORT = int(os.environ.get('PORT', 5000))
+    
+    # Database settings for DLT PostgreSQL destination
+    DB_HOST = os.environ.get('DB_HOST', 'localhost')
+    DB_PORT = int(os.environ.get('DB_PORT', 5432))
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_service_data')
+    DB_USER = os.environ.get('DB_USER', 'postgres')
+    DB_PASSWORD = os.environ.get('DB_PASSWORD', '')
+    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'emoney_service')
+
+    # Connection pool settings
+    DB_POOL_SIZE = int(os.environ.get('DB_POOL_SIZE', 10))
+    DB_MAX_OVERFLOW = int(os.environ.get('DB_MAX_OVERFLOW', 20))
+    DB_POOL_TIMEOUT = int(os.environ.get('DB_POOL_TIMEOUT', 30))
+    DB_POOL_RECYCLE = int(os.environ.get('DB_POOL_RECYCLE', 3600))
+    
+    # DLT specific settings
+    DLT_PIPELINE_NAME = os.environ.get('DLT_PIPELINE_NAME', 'emoney_extraction_service')
+    DLT_WORKING_DIR = os.environ.get('DLT_WORKING_DIR', '.dlt')
+    DLT_RUNTIME_ENV = os.environ.get('DLT_RUNTIME_ENV', 'production')
+    
+    # eMoney API Configuration
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://146.190.97.129:6820')
+    EMONEY_API_TIMEOUT = int(os.environ.get('EMONEY_API_TIMEOUT', 30))
+    EMONEY_API_RATE_LIMIT = int(os.environ.get('EMONEY_API_RATE_LIMIT', 100))
+    EMONEY_RETRY_ATTEMPTS = int(os.environ.get('EMONEY_RETRY_ATTEMPTS', 3))
+    EMONEY_RETRY_DELAY = int(os.environ.get('EMONEY_RETRY_DELAY', 1))
+
+    # eMoney Service Endpoint Configuration Variables
+    EMONEY_USERS_ENDPOINT = "/users"
+    EMONEY_ROLES_ENDPOINT = "/roles"
+    EMONEY_PERMISSIONS_ENDPOINT = "/permissions"
+    EMONEY_OFFICES_ENDPOINT = "/offices"
+    EMONEY_LOGONS_ENDPOINT = "/logons"
+    EMONEY_SHARINGRULES_ENDPOINT = "/sharingrules"
+    EMONEY_PLANS_ENDPOINT = "/plans"
+    EMONEY_GOALS_ENDPOINT = "/goals"
+    EMONEY_SCENARIOS_ENDPOINT = "/scenarios"
+    EMONEY_CASHFLOW_ENDPOINT = "/cashflow"
+    EMONEY_NETWORTH_ENDPOINT = "/networth"
+    EMONEY_CLIENTS_ENDPOINT = "/clients" 
+    EMONEY_CONTACTS_ENDPOINT = "/contacts" 
+    EMONEY_HOUSEHOLDS_ENDPOINT = "/households" 
+    EMONEY_SPOUSES_ENDPOINT = "/spouse" 
+    EMONEY_RELATIONSHIPS_ENDPOINT = "/relationships"
+    EMONEY_ACCOUNTS_ENDPOINT = "/accounts"
+    EMONEY_ACCOUNT_TYPES_ENDPOINT = "/account-types"
+    EMONEY_LIABILITIES_ENDPOINT = "/liabilities"
+    EMONEY_ASSETS_ENDPOINT = "/assets"
+    EMONEY_ASSET_CLASSES_ENDPOINT = "/assetclasses"
+
+    # HMAC authentication settings
+    HMAC_SECRET_KEY = os.environ.get('HMAC_SECRET_KEY', 'change-this-in-production')
+    HMAC_ALGORITHM = os.environ.get('HMAC_ALGORITHM', 'SHA256')
+    HMAC_ALLOWED_CLIENT_IDS = os.environ.get('HMAC_ALLOWED_CLIENT_IDS', 'emoney-controller-service').split(',')
+    HMAC_HEADER_NAME = os.environ.get('HMAC_HEADER_NAME', 'X-Emoney-Signature')
+    HMAC_TIMESTAMP_HEADER = os.environ.get('HMAC_TIMESTAMP_HEADER', 'X-Emoney-Timestamp')
+    HMAC_CLIENT_ID_HEADER = os.environ.get('HMAC_CLIENT_ID_HEADER', 'X-Emoney-Client-ID')
+    HMAC_SIGNATURE_MAX_AGE = int(os.environ.get('HMAC_SIGNATURE_MAX_AGE', 300))  # 5 minutes
+    HMAC_ENABLED = os.environ.get('HMAC_ENABLED', 'False').lower() == 'true'
+    
+    # Extraction service settings
+    MAX_CONCURRENT_SCANS = int(os.environ.get('MAX_CONCURRENT_SCANS', 5))
+    SCAN_TIMEOUT_HOURS = int(os.environ.get('SCAN_TIMEOUT_HOURS', 24))
+    CLEANUP_DAYS = int(os.environ.get('CLEANUP_DAYS', 7))
+    DEFAULT_BATCH_SIZE = int(os.environ.get('DEFAULT_BATCH_SIZE', 100))
+    
+    # Cache settings (Redis)
+    CACHE_ENABLED = os.environ.get('CACHE_ENABLED', 'True').lower() == 'true'
+    CACHE_TYPE = os.environ.get('CACHE_TYPE', 'redis')
+    REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+    REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
+    REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
+    REDIS_DB = int(os.environ.get('REDIS_DB', 0))
+    CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_DEFAULT_TIMEOUT', 300))
+    
+    # Logging settings
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+    LOG_FORMAT = os.environ.get('LOG_FORMAT', 'json')
+    LOG_DATE_FORMAT = os.environ.get('LOG_DATE_FORMAT', '%Y-%m-%d %H:%M:%S')
+    LOG_FILE_PATH = os.environ.get('LOG_FILE_PATH', 'logs/app.log')
+    LOG_MAX_BYTES = int(os.environ.get('LOG_MAX_BYTES', 10485760))  # 10MB
+    LOG_BACKUP_COUNT = int(os.environ.get('LOG_BACKUP_COUNT', 5))
+    
+    # Loki logging (optional)
+    LOKI_ENABLED = os.environ.get('LOKI_ENABLED', 'False').lower() == 'true'
+    LOKI_URL = os.environ.get('LOKI_URL', 'http://localhost:3100')
+    LOKI_USERNAME = os.environ.get('LOKI_USERNAME', '')
+    LOKI_PASSWORD = os.environ.get('LOKI_PASSWORD', '')
+    LOKI_LABELS = {
+        'app': 'emoney_extraction_service',
+        'env': os.environ.get('FLASK_ENV', 'development'),
+        'service': 'api'
+    }
+    
+    # CORS settings
+    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://localhost:8080').split(',')
+    CORS_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    CORS_ALLOW_HEADERS = ['Content-Type', 'Authorization', 'X-Requested-With']
+    
+    # Security settings
+    BCRYPT_LOG_ROUNDS = int(os.environ.get('BCRYPT_LOG_ROUNDS', 12))
+    WTF_CSRF_ENABLED = os.environ.get('WTF_CSRF_ENABLED', 'True').lower() == 'true'
+    WTF_CSRF_TIME_LIMIT = int(os.environ.get('WTF_CSRF_TIME_LIMIT', 3600))
+    
+    # Rate limiting
+    RATELIMIT_ENABLED = os.environ.get('RATELIMIT_ENABLED', 'True').lower() == 'true'
+    RATELIMIT_STORAGE_URL = os.environ.get('RATELIMIT_STORAGE_URL', f'redis://{REDIS_HOST}:{REDIS_PORT}')
+    RATELIMIT_DEFAULT = os.environ.get('RATELIMIT_DEFAULT', '100 per hour')
+    
+    # Health check settings
+    HEALTH_CHECK_ENABLED = True
+    HEALTH_CHECK_DATABASE = True
+    HEALTH_CHECK_CACHE = True
+    
+    # API-specific settings
+    API_DOCS_PATH = '/docs'
+    API_DOCS_ENABLED = True
+    API_PREFIX = '/api'
+
+    API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '0'))
+
+    # Kafka settings (optional)
+    KAFKA_ENABLED = os.environ.get('KAFKA_ENABLED', 'False').lower() == 'true'
+    KAFKA_BOOTSTRAP_SERVERS = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+    KAFKA_TOPIC_1 = os.environ.get('KAFKA_TOPIC', 'kafka_topic_1')
+    KAFKA_TOPIC_2 = os.environ.get('KAFKA_TOPIC_2', 'kafka_topic_2')
+    KAFKA_TOPIC_3 = os.environ.get('KAFKA_TOPIC_3', 'kafka_topic_3')
+
+    # Extraction Control Variables for eMoney service entities
+    
+    # User extraction control variables
+    USER_CHECKPOINT_FREQUENCY = int(os.environ.get('USER_CHECKPOINT_FREQUENCY', 10))
+    USER_PAUSE_CHECK_FREQUENCY = int(os.environ.get('USER_PAUSE_CHECK_FREQUENCY', 5))
+    USER_CANCEL_CHECK_FREQUENCY = int(os.environ.get('USER_CANCEL_CHECK_FREQUENCY', 2))
+    USER_MAX_BATCHES = int(os.environ.get('USER_MAX_BATCHES', 1000))
+
+    # Role extraction control variables
+    ROLE_CHECKPOINT_FREQUENCY = int(os.environ.get('ROLE_CHECKPOINT_FREQUENCY', 10))
+    ROLE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ROLE_PAUSE_CHECK_FREQUENCY', 5))
+    ROLE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ROLE_CANCEL_CHECK_FREQUENCY', 2))
+    ROLE_MAX_BATCHES = int(os.environ.get('ROLE_MAX_BATCHES', 1000))
+
+    # Permission extraction control variables
+    PERMISSION_CHECKPOINT_FREQUENCY = int(os.environ.get('PERMISSION_CHECKPOINT_FREQUENCY', 10))
+    PERMISSION_PAUSE_CHECK_FREQUENCY = int(os.environ.get('PERMISSION_PAUSE_CHECK_FREQUENCY', 5))
+    PERMISSION_CANCEL_CHECK_FREQUENCY = int(os.environ.get('PERMISSION_CANCEL_CHECK_FREQUENCY', 2))
+    PERMISSION_MAX_BATCHES = int(os.environ.get('PERMISSION_MAX_BATCHES', 1000))
+
+    # Office extraction control variables
+    OFFICE_CHECKPOINT_FREQUENCY = int(os.environ.get('OFFICE_CHECKPOINT_FREQUENCY', 10))
+    OFFICE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('OFFICE_PAUSE_CHECK_FREQUENCY', 5))
+    OFFICE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('OFFICE_CANCEL_CHECK_FREQUENCY', 2))
+    OFFICE_MAX_BATCHES = int(os.environ.get('OFFICE_MAX_BATCHES', 1000))
+
+    # Logon extraction control variables
+    LOGON_CHECKPOINT_FREQUENCY = int(os.environ.get('LOGON_CHECKPOINT_FREQUENCY', 10))
+    LOGON_PAUSE_CHECK_FREQUENCY = int(os.environ.get('LOGON_PAUSE_CHECK_FREQUENCY', 5))
+    LOGON_CANCEL_CHECK_FREQUENCY = int(os.environ.get('LOGON_CANCEL_CHECK_FREQUENCY', 2))
+    LOGON_MAX_BATCHES = int(os.environ.get('LOGON_MAX_BATCHES', 1000))
+
+    # SharingRule extraction control variables
+    SHARINGRULE_CHECKPOINT_FREQUENCY = int(os.environ.get('SHARINGRULE_CHECKPOINT_FREQUENCY', 10))
+    SHARINGRULE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('SHARINGRULE_PAUSE_CHECK_FREQUENCY', 5))
+    SHARINGRULE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('SHARINGRULE_CANCEL_CHECK_FREQUENCY', 2))
+    SHARINGRULE_MAX_BATCHES = int(os.environ.get('SHARINGRULE_MAX_BATCHES', 1000))
+    
+    # Plan extraction control variables
+    PLAN_CHECKPOINT_FREQUENCY = int(os.environ.get('PLAN_CHECKPOINT_FREQUENCY', 10))
+    PLAN_PAUSE_CHECK_FREQUENCY = int(os.environ.get('PLAN_PAUSE_CHECK_FREQUENCY', 5))
+    PLAN_CANCEL_CHECK_FREQUENCY = int(os.environ.get('PLAN_CANCEL_CHECK_FREQUENCY', 2))
+    PLAN_MAX_BATCHES = int(os.environ.get('PLAN_MAX_BATCHES', 1000))
+
+    # Goal extraction control variables
+    GOAL_CHECKPOINT_FREQUENCY = int(os.environ.get('GOAL_CHECKPOINT_FREQUENCY', 10))
+    GOAL_PAUSE_CHECK_FREQUENCY = int(os.environ.get('GOAL_PAUSE_CHECK_FREQUENCY', 5))
+    GOAL_CANCEL_CHECK_FREQUENCY = int(os.environ.get('GOAL_CANCEL_CHECK_FREQUENCY', 2))
+    GOAL_MAX_BATCHES = int(os.environ.get('GOAL_MAX_BATCHES', 1000))
+
+    # Scenario extraction control variables
+    SCENARIO_CHECKPOINT_FREQUENCY = int(os.environ.get('SCENARIO_CHECKPOINT_FREQUENCY', 10))
+    SCENARIO_PAUSE_CHECK_FREQUENCY = int(os.environ.get('SCENARIO_PAUSE_CHECK_FREQUENCY', 5))
+    SCENARIO_CANCEL_CHECK_FREQUENCY = int(os.environ.get('SCENARIO_CANCEL_CHECK_FREQUENCY', 2))
+    SCENARIO_MAX_BATCHES = int(os.environ.get('SCENARIO_MAX_BATCHES', 1000))
+
+    # CashFlow extraction control variables
+    CASHFLOW_CHECKPOINT_FREQUENCY = int(os.environ.get('CASHFLOW_CHECKPOINT_FREQUENCY', 10))
+    CASHFLOW_PAUSE_CHECK_FREQUENCY = int(os.environ.get('CASHFLOW_PAUSE_CHECK_FREQUENCY', 5))
+    CASHFLOW_CANCEL_CHECK_FREQUENCY = int(os.environ.get('CASHFLOW_CANCEL_CHECK_FREQUENCY', 2))
+    CASHFLOW_MAX_BATCHES = int(os.environ.get('CASHFLOW_MAX_BATCHES', 1000))
+
+    # NetWorth extraction control variables
+    NETWORTH_CHECKPOINT_FREQUENCY = int(os.environ.get('NETWORTH_CHECKPOINT_FREQUENCY', 10))
+    NETWORTH_PAUSE_CHECK_FREQUENCY = int(os.environ.get('NETWORTH_PAUSE_CHECK_FREQUENCY', 5))
+    NETWORTH_CANCEL_CHECK_FREQUENCY = int(os.environ.get('NETWORTH_CANCEL_CHECK_FREQUENCY', 2))
+    NETWORTH_MAX_BATCHES = int(os.environ.get('NETWORTH_MAX_BATCHES', 1000))
+    
+    CLIENT_CHECKPOINT_FREQUENCY = int(os.environ.get('CLIENT_CHECKPOINT_FREQUENCY', 10))
+    CLIENT_PAUSE_CHECK_FREQUENCY = int(os.environ.get('CLIENT_PAUSE_CHECK_FREQUENCY', 5))
+    CLIENT_CANCEL_CHECK_FREQUENCY = int(os.environ.get('CLIENT_CANCEL_CHECK_FREQUENCY', 2))
+    CLIENT_MAX_BATCHES = int(os.environ.get('CLIENT_MAX_BATCHES', 1000))
+
+    # Contact extraction control variables
+    CONTACT_CHECKPOINT_FREQUENCY = int(os.environ.get('CONTACT_CHECKPOINT_FREQUENCY', 10))
+    CONTACT_PAUSE_CHECK_FREQUENCY = int(os.environ.get('CONTACT_PAUSE_CHECK_FREQUENCY', 5))
+    CONTACT_CANCEL_CHECK_FREQUENCY = int(os.environ.get('CONTACT_CANCEL_CHECK_FREQUENCY', 2))
+    CONTACT_MAX_BATCHES = int(os.environ.get('CONTACT_MAX_BATCHES', 1000))
+
+    # Household extraction control variables
+    HOUSEHOLD_CHECKPOINT_FREQUENCY = int(os.environ.get('HOUSEHOLD_CHECKPOINT_FREQUENCY', 10))
+    HOUSEHOLD_PAUSE_CHECK_FREQUENCY = int(os.environ.get('HOUSEHOLD_PAUSE_CHECK_FREQUENCY', 5))
+    HOUSEHOLD_CANCEL_CHECK_FREQUENCY = int(os.environ.get('HOUSEHOLD_CANCEL_CHECK_FREQUENCY', 2))
+    HOUSEHOLD_MAX_BATCHES = int(os.environ.get('HOUSEHOLD_MAX_BATCHES', 1000))
+
+    # Spouse extraction control variables
+    SPOUSE_CHECKPOINT_FREQUENCY = int(os.environ.get('SPOUSE_CHECKPOINT_FREQUENCY', 10))
+    SPOUSE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('SPOUSE_PAUSE_CHECK_FREQUENCY', 5))
+    SPOUSE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('SPOUSE_CANCEL_CHECK_FREQUENCY', 2))
+    SPOUSE_MAX_BATCHES = int(os.environ.get('SPOUSE_MAX_BATCHES', 1000))
+
+    # Relationship extraction control variables
+    RELATIONSHIP_CHECKPOINT_FREQUENCY = int(os.environ.get('RELATIONSHIP_CHECKPOINT_FREQUENCY', 10))
+    RELATIONSHIP_PAUSE_CHECK_FREQUENCY = int(os.environ.get('RELATIONSHIP_PAUSE_CHECK_FREQUENCY', 5))
+    RELATIONSHIP_CANCEL_CHECK_FREQUENCY = int(os.environ.get('RELATIONSHIP_CANCEL_CHECK_FREQUENCY', 2))
+    RELATIONSHIP_MAX_BATCHES = int(os.environ.get('RELATIONSHIP_MAX_BATCHES', 1000))
+
+    # Account extraction control variables
+    ACCOUNT_CHECKPOINT_FREQUENCY = int(os.environ.get('ACCOUNT_CHECKPOINT_FREQUENCY', 10))
+    ACCOUNT_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ACCOUNT_PAUSE_CHECK_FREQUENCY', 5))
+    ACCOUNT_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ACCOUNT_CANCEL_CHECK_FREQUENCY', 2))
+    ACCOUNT_MAX_BATCHES = int(os.environ.get('ACCOUNT_MAX_BATCHES', 1000))
+
+    # AccountType extraction control variables
+    ACCOUNTTYPE_CHECKPOINT_FREQUENCY = int(os.environ.get('ACCOUNTTYPE_CHECKPOINT_FREQUENCY', 10))
+    ACCOUNTTYPE_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ACCOUNTTYPE_PAUSE_CHECK_FREQUENCY', 5))
+    ACCOUNTTYPE_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ACCOUNTTYPE_CANCEL_CHECK_FREQUENCY', 2))
+    ACCOUNTTYPE_MAX_BATCHES = int(os.environ.get('ACCOUNTTYPE_MAX_BATCHES', 1000))
+
+    # Liability extraction control variables
+    LIABILITY_CHECKPOINT_FREQUENCY = int(os.environ.get('LIABILITY_CHECKPOINT_FREQUENCY', 10))
+    LIABILITY_PAUSE_CHECK_FREQUENCY = int(os.environ.get('LIABILITY_PAUSE_CHECK_FREQUENCY', 5))
+    LIABILITY_CANCEL_CHECK_FREQUENCY = int(os.environ.get('LIABILITY_CANCEL_CHECK_FREQUENCY', 2))
+    LIABILITY_MAX_BATCHES = int(os.environ.get('LIABILITY_MAX_BATCHES', 1000))
+
+    # Asset extraction control variables
+    ASSET_CHECKPOINT_FREQUENCY = int(os.environ.get('ASSET_CHECKPOINT_FREQUENCY', 10))
+    ASSET_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ASSET_PAUSE_CHECK_FREQUENCY', 5))
+    ASSET_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ASSET_CANCEL_CHECK_FREQUENCY', 2))
+    ASSET_MAX_BATCHES = int(os.environ.get('ASSET_MAX_BATCHES', 1000))
+
+    # AssetClass extraction control variables
+    ASSETCLASS_CHECKPOINT_FREQUENCY = int(os.environ.get('ASSETCLASS_CHECKPOINT_FREQUENCY', 10))
+    ASSETCLASS_PAUSE_CHECK_FREQUENCY = int(os.environ.get('ASSETCLASS_PAUSE_CHECK_FREQUENCY', 5))
+    ASSETCLASS_CANCEL_CHECK_FREQUENCY = int(os.environ.get('ASSETCLASS_CANCEL_CHECK_FREQUENCY', 2))
+    ASSETCLASS_MAX_BATCHES = int(os.environ.get('ASSETCLASS_MAX_BATCHES', 1000))
+
+    @classmethod
+    def get_database_url(cls) -> str:
+        """Get the PostgreSQL database URL for SQLAlchemy/DLT"""
+        password_part = f":{cls.DB_PASSWORD}" if cls.DB_PASSWORD else ""
+        return f"postgresql://{cls.DB_USER}{password_part}@{cls.DB_HOST}:{cls.DB_PORT}/{cls.DB_NAME}"
+    
+    @classmethod
+    def get_redis_url(cls) -> str:
+        """Get the Redis connection URL"""
+        password_part = f":{cls.REDIS_PASSWORD}@" if cls.REDIS_PASSWORD else "@"
+        return f"redis://{password_part}{cls.REDIS_HOST}:{cls.REDIS_PORT}/{cls.REDIS_DB}"
+    
+    @classmethod
+    def get_extraction_config(cls) -> Dict[str, Any]:
+        """Get configuration for the extraction service"""
+        return {
+            # Database configuration
+            'db_host': cls.DB_HOST,
+            'db_port': cls.DB_PORT,
+            'db_name': cls.DB_NAME,
+            'db_user': cls.DB_USER,
+            'db_password': cls.DB_PASSWORD,
+            'db_schema': cls.DB_SCHEMA,
+            'db_pool_size': cls.DB_POOL_SIZE,
+            'db_max_overflow': cls.DB_MAX_OVERFLOW,
+            
+            # DLT configuration
+            'pipeline_name': cls.DLT_PIPELINE_NAME,
+            'working_dir': cls.DLT_WORKING_DIR,
+            'runtime_env': cls.DLT_RUNTIME_ENV,
+            
+            # Service configuration
+            'max_concurrent_scans': cls.MAX_CONCURRENT_SCANS,
+            'scan_timeout_hours': cls.SCAN_TIMEOUT_HOURS,
+            'default_batch_size': cls.DEFAULT_BATCH_SIZE,
+            
+            # eMoney Service API configuration
+            'emoney_api_base_url': cls.EMONEY_API_BASE_URL,
+            'emoney_api_timeout': cls.EMONEY_API_TIMEOUT,
+            'emoney_api_rate_limit': cls.EMONEY_API_RATE_LIMIT,
+            'emoney_users_endpoint': cls.EMONEY_USERS_ENDPOINT,
+            'emoney_roles_endpoint': cls.EMONEY_ROLES_ENDPOINT,
+            'emoney_permissions_endpoint': cls.EMONEY_PERMISSIONS_ENDPOINT,
+            'emoney_offices_endpoint': cls.EMONEY_OFFICES_ENDPOINT,
+            'emoney_logons_endpoint': cls.EMONEY_LOGONS_ENDPOINT,
+            'emoney_sharingrules_endpoint': cls.EMONEY_SHARINGRULES_ENDPOINT,
+            'emoney_plans_endpoint': cls.EMONEY_PLANS_ENDPOINT,
+            'emoney_goals_endpoint': cls.EMONEY_GOALS_ENDPOINT,
+            'emoney_scenarios_endpoint': cls.EMONEY_SCENARIOS_ENDPOINT,
+            'emoney_cashflow_endpoint': cls.EMONEY_CASHFLOW_ENDPOINT,
+            'emoney_networth_endpoint': cls.EMONEY_NETWORTH_ENDPOINT,
+            'emoney_clients_endpoint': cls.EMONEY_CLIENTS_ENDPOINT,
+            'emoney_contacts_endpoint': cls.EMONEY_CONTACTS_ENDPOINT,
+            'emoney_households_endpoint': cls.EMONEY_HOUSEHOLDS_ENDPOINT,
+            'emoney_spouses_endpoint': cls.EMONEY_SPOUSES_ENDPOINT,
+            'emoney_relationships_endpoint': cls.EMONEY_RELATIONSHIPS_ENDPOINT,
+            'emoney_accounts_endpoint': cls.EMONEY_ACCOUNTS_ENDPOINT,
+            'emoney_account_types_endpoint': cls.EMONEY_ACCOUNT_TYPES_ENDPOINT,
+            'emoney_liabilities_endpoint': cls.EMONEY_LIABILITIES_ENDPOINT,
+            'emoney_assets_endpoint': cls.EMONEY_ASSETS_ENDPOINT,
+            'emoney_asset_classes_endpoint': cls.EMONEY_ASSET_CLASSES_ENDPOINT,
+            'eMoney_retry_attempts': cls.EMONEY_RETRY_ATTEMPTS,
+            'eMoney_retry_delay': cls.EMONEY_RETRY_DELAY,
+
+            # Cache configuration
+            'cache_enabled': cls.CACHE_ENABLED,
+            'redis_url': cls.get_redis_url() if cls.CACHE_ENABLED else None,
+            'cache_timeout': cls.CACHE_DEFAULT_TIMEOUT,
+
+            'api_test_delay_seconds': cls.API_TEST_DELAY_SECONDS
+        }
+    
+    @classmethod
+    def get_dlt_config(cls) -> Dict[str, Any]:
+        """Get DLT specific configuration"""
+        return {
+            'destination': {
+                'postgres': {
+                    'host': cls.DB_HOST,
+                    'port': cls.DB_PORT,
+                    'database': cls.DB_NAME,
+                    'username': cls.DB_USER,
+                    'password': cls.DB_PASSWORD,
+                    'schema_name': cls.DB_SCHEMA,
+                    'connect_timeout': cls.DB_POOL_TIMEOUT
+                }
+            },
+            'runtime': {
+                'log_level': cls.LOG_LEVEL,
+                'pipeline_name': cls.DLT_PIPELINE_NAME,
+                'working_dir': cls.DLT_WORKING_DIR,
+                'environment': cls.DLT_RUNTIME_ENV
+            },
+            'sources': {
+                'emoney_source': {
+                    'base_url': cls.EMONEY_API_BASE_URL,
+                    'users_endpoint': cls.EMONEY_USERS_ENDPOINT,
+                    'roles_endpoint': cls.EMONEY_ROLES_ENDPOINT,
+                    'permissions_endpoint': cls.EMONEY_PERMISSIONS_ENDPOINT,
+                    'offices_endpoint': cls.EMONEY_OFFICES_ENDPOINT,
+                    'logons_endpoint': cls.EMONEY_LOGONS_ENDPOINT,
+                    'sharingrules_endpoint': cls.EMONEY_SHARINGRULES_ENDPOINT,
+                    'plans_endpoint': cls.EMONEY_PLANS_ENDPOINT,
+                    'goals_endpoint': cls.EMONEY_GOALS_ENDPOINT,
+                    'scenarios_endpoint': cls.EMONEY_SCENARIOS_ENDPOINT,
+                    'cashflow_endpoint': cls.EMONEY_CASHFLOW_ENDPOINT,
+                    'networth_endpoint': cls.EMONEY_NETWORTH_ENDPOINT,
+                    'clients_endpoint': cls.EMONEY_CLIENTS_ENDPOINT,
+                    'contacts_endpoint': cls.EMONEY_CONTACTS_ENDPOINT,
+                    'households_endpoint': cls.EMONEY_HOUSEHOLDS_ENDPOINT,
+                    'spouses_endpoint': cls.EMONEY_SPOUSES_ENDPOINT,
+                    'relationships_endpoint': cls.EMONEY_RELATIONSHIPS_ENDPOINT,
+                    'accounts_endpoint': cls.EMONEY_ACCOUNTS_ENDPOINT,
+                    'account_types_endpoint': cls.EMONEY_ACCOUNT_TYPES_ENDPOINT,
+                    'liabilities_endpoint': cls.EMONEY_LIABILITIES_ENDPOINT,
+                    'assets_endpoint': cls.EMONEY_ASSETS_ENDPOINT,
+                    'asset_classes_endpoint': cls.EMONEY_ASSET_CLASSES_ENDPOINT,
+                    'batch_size': cls.DEFAULT_BATCH_SIZE,
+                    'timeout': cls.EMONEY_API_TIMEOUT,
+                    'retry_attempts': cls.EMONEY_RETRY_ATTEMPTS
+                }
+            }
+        }
+    
+    @classmethod
+    def get_logging_config(cls) -> Dict[str, Any]:
+        """Get logging configuration"""
+        return {
+            'version': 1,
+            'disable_existing_loggers': False,
+            'formatters': {
+                'default': {
+                    'format': cls.LOG_FORMAT,
+                    'datefmt': cls.LOG_DATE_FORMAT
+                },
+                'json': {
+                    '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+                    'format': '%(asctime)s %(name)s %(levelname)s %(message)s'
+                }
+            },
+            'handlers': {
+                'console': {
+                    'class': 'logging.StreamHandler',
+                    'level': cls.LOG_LEVEL,
+                    'formatter': 'default',
+                    'stream': 'ext://sys.stdout'
+                },
+                'file': {
+                    'class': 'logging.handlers.RotatingFileHandler',
+                    'level': cls.LOG_LEVEL,
+                    'formatter': 'json',
+                    'filename': cls.LOG_FILE_PATH,
+                    'maxBytes': cls.LOG_MAX_BYTES,
+                    'backupCount': cls.LOG_BACKUP_COUNT
+                }
+            },
+            'root': {
+                'level': cls.LOG_LEVEL,
+                'handlers': ['console', 'file']
+            },
+            'loggers': {
+                'dlt': {
+                    'level': 'INFO',
+                    'handlers': ['console', 'file'],
+                    'propagate': False
+                },
+                'sqlalchemy': {
+                    'level': 'WARNING',
+                    'handlers': ['console'],
+                    'propagate': False
+                },
+                'requests': {
+                    'level': 'WARNING',
+                    'handlers': ['console'],
+                    'propagate': False
+                }
+            }
+        }
+
+    @classmethod
+    def get_api_config(cls) -> Dict[str, Any]:
+        """
+        Get API-specific configuration settings.
+        """
+        return {
+            'title': cls.DLT_PIPELINE_NAME,
+            'version': cls.APP_VERSION,
+            'description': cls.APP_DESCRIPTION,
+            'docs_path': cls.API_DOCS_PATH,
+            'docs_enabled': cls.API_DOCS_ENABLED,
+            'prefix': cls.API_PREFIX,
+            'emoney_api_base_url': cls.EMONEY_API_BASE_URL,
+            'emoney_api_timeout': cls.EMONEY_API_TIMEOUT,
+            'emoney_api_rate_limit': cls.EMONEY_API_RATE_LIMIT,
+            'users_endpoint': cls.EMONEY_USERS_ENDPOINT,
+            'roles_endpoint': cls.EMONEY_ROLES_ENDPOINT,
+            'permissions_endpoint': cls.EMONEY_PERMISSIONS_ENDPOINT,
+            'offices_endpoint': cls.EMONEY_OFFICES_ENDPOINT,
+            'logons_endpoint': cls.EMONEY_LOGONS_ENDPOINT,
+            'sharingrules_endpoint': cls.EMONEY_SHARINGRULES_ENDPOINT,
+            'plans_endpoint': cls.EMONEY_PLANS_ENDPOINT,
+            'goals_endpoint': cls.EMONEY_GOALS_ENDPOINT,
+            'scenarios_endpoint': cls.EMONEY_SCENARIOS_ENDPOINT,
+            'cashflow_endpoint': cls.EMONEY_CASHFLOW_ENDPOINT,
+            'networth_endpoint': cls.EMONEY_NETWORTH_ENDPOINT,
+            'clients_endpoint': cls.EMONEY_CLIENTS_ENDPOINT,
+            'contacts_endpoint': cls.EMONEY_CONTACTS_ENDPOINT,
+            'households_endpoint': cls.EMONEY_HOUSEHOLDS_ENDPOINT,
+            'spouses_endpoint': cls.EMONEY_SPOUSES_ENDPOINT,
+            'relationships_endpoint': cls.EMONEY_RELATIONSHIPS_ENDPOINT,
+            'accounts_endpoint': cls.EMONEY_ACCOUNTS_ENDPOINT,
+            'account_types_endpoint': cls.EMONEY_ACCOUNT_TYPES_ENDPOINT,
+            'liabilities_endpoint': cls.EMONEY_LIABILITIES_ENDPOINT,
+            'assets_endpoint': cls.EMONEY_ASSETS_ENDPOINT,
+            'asset_classes_endpoint': cls.EMONEY_ASSET_CLASSES_ENDPOINT,
+            'retry_attempts': cls.EMONEY_RETRY_ATTEMPTS,
+            'retry_delay': cls.EMONEY_RETRY_DELAY,
+            "max_scan_list_limit": 100,
+            "default_scan_list_limit": 20,
+            "max_results_limit": 500,
+            "default_results_limit": 100,
+            "crash_detection_timeout": 10,
+            "max_crash_detection_timeout": 60,
+        }
+
+
+class DevelopmentConfig(Config):
+    """Development configuration"""
+    DEBUG = True
+    TESTING = False
+    
+    # Use development database
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_service_data_dev')
+    
+    # Relaxed settings for development
+    MAX_CONCURRENT_SCANS = int(os.environ.get('MAX_CONCURRENT_SCANS', 2))
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG')
+    
+    # Development CORS - more permissive
+    CORS_ORIGINS = ['*']
+    
+    # Disable rate limiting in development
+    RATELIMIT_ENABLED = False
+    
+    # Development specific settings
+    FLASK_ENV = 'development'
+    LOKI_ENABLED = os.environ.get('LOKI_ENABLED', 'true').lower() == 'true'
+
+    API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '2'))
+
+    EMONEY_API_BASE_URL = 'http://146.190.97.129:6820'
+
+
+class TestingConfig(Config):
+    """Testing configuration"""
+    TESTING = True
+    DEBUG = False
+    
+    # Use test database
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_service_data_test')
+    DB_SCHEMA = os.environ.get('DB_SCHEMA', 'emoney_service_test')
+
+    # Disable external services in testing
+    CACHE_ENABLED = False
+    LOKI_ENABLED = False
+    RATELIMIT_ENABLED = False
+    
+    # Fast testing settings
+    MAX_CONCURRENT_SCANS = 1
+    SCAN_TIMEOUT_HOURS = 1
+    DEFAULT_BATCH_SIZE = 10
+    
+    # Test specific settings
+    WTF_CSRF_ENABLED = False
+    BCRYPT_LOG_ROUNDS = 4
+
+    EMONEY_API_BASE_URL = 'http://146.190.97.129:6820'
+    API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', 2))
+
+    # Test mode configuration for extraction
+    TEST_BATCH_DELAY_SECONDS = float(os.environ.get('TEST_BATCH_DELAY_SECONDS', 5))
+    TEST_RECORD_DELAY_SECONDS = float(os.environ.get('TEST_RECORD_DELAY_SECONDS', 0.1))
+
+
+class StagingConfig(Config):
+    """Staging configuration"""
+    DEBUG = False
+    TESTING = False
+    
+    # Use staging database
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_service_data_staging')
+    
+    # Production-like settings but with more logging
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'DEBUG')
+    MAX_CONCURRENT_SCANS = int(os.environ.get('MAX_CONCURRENT_SCANS', 3))
+    
+    # Enable monitoring
+    LOKI_ENABLED = os.environ.get('LOKI_ENABLED', 'True').lower() == 'true'
+    
+    # Staging specific settings
+    FLASK_ENV = 'staging'
+
+    API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', 0))
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://146.190.97.129:6820')
+
+
+class ProductionConfig(Config):
+    """Production configuration"""
+    DEBUG = False
+    TESTING = False
+    
+    # Production database
+    DB_NAME = os.environ.get('DB_NAME', 'emoney_service_data')
+    
+    # Strict production settings
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+    MAX_CONCURRENT_SCANS = int(os.environ.get('MAX_CONCURRENT_SCANS', 10))
+    
+    # Security: These MUST be set in production
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    DB_PASSWORD = os.environ.get('DB_PASSWORD')
+    
+    # Production optimizations
+    DB_POOL_SIZE = int(os.environ.get('DB_POOL_SIZE', 20))
+    DB_MAX_OVERFLOW = int(os.environ.get('DB_MAX_OVERFLOW', 40))
+    
+    # Enable all monitoring in production
+    LOKI_ENABLED = os.environ.get('LOKI_ENABLED', 'True').lower() == 'true'
+    RATELIMIT_ENABLED = True
+    
+    # Production specific settings
+    FLASK_ENV = 'production'
+
+    API_TEST_DELAY_SECONDS = float(os.environ.get('API_TEST_DELAY_SECONDS', '0'))
+    EMONEY_API_BASE_URL = os.environ.get('EMONEY_API_BASE_URL', 'http://146.190.97.129:6820')
+    
+    @classmethod
+    def validate_production_config(cls):
+        """Validate that required production settings are set"""
+        required_vars = ['SECRET_KEY', 'DB_PASSWORD']
+        missing_vars = [var for var in required_vars if not getattr(cls, var)]
+        
+        if missing_vars:
+            raise ValueError(
+                f"Missing required environment variables for production: {', '.join(missing_vars)}\n"
+                f"Please set these environment variables before starting the application."
+            )
+        
+        # Validate SECRET_KEY strength
+        if len(cls.SECRET_KEY) < 32:
+            raise ValueError("SECRET_KEY must be at least 32 characters long in production")
+        
+        # Validate database connection
+        if not cls.DB_PASSWORD:
+            raise ValueError("DB_PASSWORD must be set in production")
+
+
+# Configuration mapping
+config_by_name = {
+    'development': DevelopmentConfig,
+    'testing': TestingConfig,
+    'staging': StagingConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig
+}
+
+
+def get_config(config_name: str = None) -> Config:
+    """
+    Get configuration by name
+    
+    Args:
+        config_name: Configuration name (development, testing, staging, production)
+        
+    Returns:
+        Configuration class instance
+    """
+    if not config_name:
+        config_name = os.environ.get('FLASK_ENV', 'development')
+    
+    config_class = config_by_name.get(config_name, DevelopmentConfig)
+    
+    # Validate production config if needed
+    if config_name == 'production':
+        config_class.validate_production_config()
+    
+    return config_class
+
+
+def get_database_engine_config() -> Dict[str, Any]:
+    """Get SQLAlchemy engine configuration"""
+    config = get_config()
+    
+    return {
+        'url': config.get_database_url(),
+        'pool_size': config.DB_POOL_SIZE,
+        'max_overflow': config.DB_MAX_OVERFLOW,
+        'pool_timeout': config.DB_POOL_TIMEOUT,
+        'pool_recycle': config.DB_POOL_RECYCLE,
+        'pool_pre_ping': True,
+        'echo': config.DEBUG and config.LOG_LEVEL == 'DEBUG'
+    }
