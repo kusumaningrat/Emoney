@@ -15,7 +15,7 @@
 
 ## 🔍 Overview
 
-The eMoney Service handles extraction of data from the eMoney Advisor platform, including User, Role, Permission, Office, Logon, SharingRule, Plan, Goal, Scenario, CashFlow, NetWorth, Client, Contact, Household, Spouse, Relationship, Account, AccountType, Asset, AssetClass, Liability
+The eMoney Service handles extraction of data from the eMoney Advisor platform, including User, Role, Permission, Office, Logon, SharingRule, Plan, Goal, Scenario, CashFlow, NetWorth, Client, Contact, Household, Spouse, Relationship, Account, AccountType, Asset, AssetClass, Liability.
 
 ### API Version
 

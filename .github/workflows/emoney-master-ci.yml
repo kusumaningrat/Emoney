@@ -4,12 +4,12 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "emoney-master/**"
+      - "emoney-master-service/**"
 
   pull_request:
     branches: ["main"]
     paths:
-      - "emoney-master/**"
+      - "emoney-master-service/**"
 
 env:
   PRODUCT_VERSION: "latest"
