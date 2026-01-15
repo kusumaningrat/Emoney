@@ -50,7 +50,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./emoney-master
-          file: ./emoney-master/Dockerfile.stage
+          file: ./emoney-master-service/Dockerfile.stage
           push: true
           tags: |
             ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
