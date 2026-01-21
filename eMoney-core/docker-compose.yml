@@ -35,23 +35,23 @@ services:
       - MAX_RETRY_ATTEMPTS=${MAX_RETRY_ATTEMPTS:-3}
       - RATE_LIMIT_RETRY_AFTER=${RATE_LIMIT_RETRY_AFTER:-60}
       
-      # EMoney Service URLs - Development
-      - EMONEY_ACCOUNT_URL_DEV=${EMONEY_ACCOUNT_URL_DEV:-http://host.docker.internal:4733}
-      - EMONEY_CLIENT_URL_DEV=${EMONEY_CLIENT_URL_DEV:-http://host.docker.internal:4731}
-      - EMONEY_FINANCIAL_PLANNING_URL_DEV=${EMONEY_FINANCIAL_PLANNING_URL_DEV:-http://host.docker.internal:4732}
+      # EMoney Master Connector URLs
+      - EMONEY_ACCOUNT_URL_DEV=${EMONEY_ACCOUNT_URL_DEV:-http://host.docker.internal:4709}
+      - EMONEY_CLIENT_URL_DEV=${EMONEY_CLIENT_URL_DEV:-http://host.docker.internal:4709}
+      - EMONEY_FINANCIAL_PLANNING_URL_DEV=${EMONEY_FINANCIAL_PLANNING_URL_DEV:-http://host.docker.internal:4709}
       - EMONEY_IDENTITY_URL_DEV=${EMONEY_IDENTITY_URL_DEV:-http://host.docker.internal:4709}
       
-      # EMoney Service URLs - Staging
-      - EMONEY_ACCOUNT_URL_STAGE=${EMONEY_ACCOUNT_URL_STAGE:-https://account.stage.emoney-integration.example.com}
-      - EMONEY_CLIENT_URL_STAGE=${EMONEY_CLIENT_URL_STAGE:-https://client.stage.emoney-integration.example.com}
-      - EMONEY_FINANCIAL_PLANNING_URL_STAGE=${EMONEY_FINANCIAL_PLANNING_URL_STAGE:-https://planning.stage.emoney-integration.example.com}
-      - EMONEY_IDENTITY_URL_STAGE=${EMONEY_IDENTITY_URL_STAGE:-https://identity.stage.emoney-integration.example.com}
+      # EMoney Master Connector URLs - Staging
+      - EMONEY_ACCOUNT_URL_STAGE=${EMONEY_ACCOUNT_URL_STAGE:-http://host.docker.internal:5709}
+      - EMONEY_CLIENT_URL_STAGE=${EMONEY_CLIENT_URL_STAGE:-http://host.docker.internal:5709}
+      - EMONEY_FINANCIAL_PLANNING_URL_STAGE=${EMONEY_FINANCIAL_PLANNING_URL_STAGE:-http://host.docker.internal:5709}
+      - EMONEY_IDENTITY_URL_STAGE=${EMONEY_IDENTITY_URL_STAGE:-http://host.docker.internal:5709}
       
-      # EMoney Service URLs - Production
-      - EMONEY_ACCOUNT_URL_PROD=${EMONEY_ACCOUNT_URL_PROD:-https://account.emoney-integration.example.com}
-      - EMONEY_CLIENT_URL_PROD=${EMONEY_CLIENT_URL_PROD:-https://client.emoney-integration.example.com}
-      - EMONEY_FINANCIAL_PLANNING_URL_PROD=${EMONEY_FINANCIAL_PLANNING_URL_PROD:-https://planning.emoney-integration.example.com}
-      - EMONEY_IDENTITY_URL_PROD=${EMONEY_IDENTITY_URL_PROD:-https://identity.emoney-integration.example.com}
+      # EMoney Master Connector URLs - Production
+      - EMONEY_ACCOUNT_URL_PROD=${EMONEY_ACCOUNT_URL_PROD:-http://host.docker.internal:3709}
+      - EMONEY_CLIENT_URL_PROD=${EMONEY_CLIENT_URL_PROD:-http://host.docker.internal:3709}
+      - EMONEY_FINANCIAL_PLANNING_URL_PROD=${EMONEY_FINANCIAL_PLANNING_URL_PROD:-http://host.docker.internal:3709}
+      - EMONEY_IDENTITY_URL_PROD=${EMONEY_IDENTITY_URL_PROD:-http://host.docker.internal:3709}
       
       # EMoney Authentication defaults
       - EMONEY_DEFAULT_API_KEY=${EMONEY_DEFAULT_API_KEY:-emoney-api-key-67890}
@@ -120,74 +120,17 @@ services:
       - pgadmin_data:/var/lib/pgadmin
       - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
 
-  # EMoney Mock Services for Development (Optional)
-  emoney-account-mock:
+  # EMoney Master Connector Mock Service for Development (Optional)
+  emoney-master-mock:
     image: wiremock/wiremock:latest
-    container_name: emoney-account-mock
-    restart: unless-stopped
-    ports:
-      - "4733:8080"
-    networks:
-      - emoney-orchestrator-network
-    volumes:
-      - ./mock-services/emoney-account:/home/wiremock
-    command: >
-      --global-response-templating
-      --verbose
-      --port 8080
-      --root-dir /home/wiremock
-    profiles:
-      - dev
-      - mock
-
-  emoney-client-mock:
-    image: wiremock/wiremock:latest
-    container_name: emoney-client-mock
-    restart: unless-stopped
-    ports:
-      - "4731:8080"
-    networks:
-      - emoney-orchestrator-network
-    volumes:
-      - ./mock-services/emoney-client:/home/wiremock
-    command: >
-      --global-response-templating
-      --verbose
-      --port 8080
-      --root-dir /home/wiremock
-    profiles:
-      - dev
-      - mock
-
-  emoney-planning-mock:
-    image: wiremock/wiremock:latest
-    container_name: emoney-planning-mock
-    restart: unless-stopped
-    ports:
-      - "4732:8080"
-    networks:
-      - emoney-orchestrator-network
-    volumes:
-      - ./mock-services/emoney-planning:/home/wiremock
-    command: >
-      --global-response-templating
-      --verbose
-      --port 8080
-      --root-dir /home/wiremock
-    profiles:
-      - dev
-      - mock
-
-  emoney-identity-mock:
-    image: wiremock/wiremock:latest
-    container_name: emoney-identity-mock
+    container_name: emoney-master-mock
     restart: unless-stopped
     ports:
       - "4709:8080"
     networks:
       - emoney-orchestrator-network
     volumes:
-      - ./mock-services/emoney-identity:/home/wiremock
+      - ./mock-services/emoney-master:/home/wiremock
     command: >
       --global-response-templating
       --verbose
