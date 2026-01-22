@@ -366,37 +366,38 @@ async def check_service_health(session: AsyncSession = Depends(get_db)):
         # Add all service URLs from settings
         health_response["service_urls"] = settings.service_urls
         
-        # Check all service connectors
-        for service_name, connector in scan_service.connectors.items():
+        # Check all service connectors using master connector
+        service_keys = ["account", "client", "financial_planning", "identity"]
+        for service_key in service_keys:
             try:
                 # Get service URL from settings
-                service_url = settings.get_service_url(service_name)
+                service_url = settings.get_service_url(service_key)
                 
-                # Get the health check endpoint from the connector
-                health_endpoint = connector._get_endpoint_path("health") if hasattr(connector, "_get_endpoint_path") else "api/health"
+                # Get the health check endpoint
+                health_endpoint = "api/health"
                 
                 # Construct full endpoint URL
                 full_endpoint = f"{service_url}/{health_endpoint}"
                 
-                # Use the connector's health check method
+                # Use the master connector's health check method
                 start_time = datetime.utcnow()
-                result = await connector.health_check()
+                result = await scan_service.connector.health_check(service_key)
                 response_time = (datetime.utcnow() - start_time).total_seconds() * 1000
                 
                 # Check if health check response indicates healthy status
                 if result.get("status") == "up" or result.get("healthy") is True:
-                    health_response["services"][service_name] = {
+                    health_response["services"][service_key] = {
                         "status": "up",
-                        "message": f"{service_name} service is healthy",
+                        "message": f"{service_key} service is healthy",
                         "url": service_url,
                         "endpoint": full_endpoint,
                         "response_time_ms": int(response_time)
                     }
                 else:
                     # Service responded but indicates it's not healthy
-                    health_response["services"][service_name] = {
+                    health_response["services"][service_key] = {
                         "status": "degraded",
-                        "message": result.get("message", f"{service_name} service reported unhealthy status"),
+                        "message": result.get("message", f"{service_key} service reported unhealthy status"),
                         "url": service_url,
                         "endpoint": full_endpoint,
                         "response_time_ms": int(response_time),
@@ -405,11 +406,11 @@ async def check_service_health(session: AsyncSession = Depends(get_db)):
                     health_response["status"] = "degraded"
             except Exception as e:
                 # Service health check request failed
-                service_url = settings.get_service_url(service_name)
-                health_response["services"][service_name] = {
+                service_url = settings.get_service_url(service_key)
+                health_response["services"][service_key] = {
                     "status": "down",
                     "error": str(e),
-                    "message": f"{service_name} service health check failed",
+                    "message": f"{service_key} service health check failed",
                     "url": service_url,
                     "endpoint": f"{service_url}/api/health"
                 }
