@@ -1,6 +1,6 @@
 # Service Orchestrator
 
-A FastAPI-based orchestration service for managing identity and other services.
+A FastAPI-based orchestration service for managing identity and other services
 
 ## Features
 
@@ -27,39 +27,46 @@ The Service Orchestrator provides a unified API for managing and orchestrating v
 ### Installation
 
 1. Clone the repository
+
 ```bash
    git clone https://github.com/your-org/service-orchestrator.git
    cd redtail-core
 ```
 
 2. Create a virtual environment
+
 ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
 3. Install dependencies
+
 ```bash
    pip install -r requirements.txt
 ```
 
 4. Set up environment variables
+
 ```bash
    cp .env.example .env
    # Edit .env with your configuration
 ```
 
 5. Initialize the database
+
 ```bash
    python scripts/init_db.py
 ```
 
 ### Running the Service
+
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Or using the convenience script:
+
 ```bash
 python -m app.main
 ```
@@ -67,6 +74,7 @@ python -m app.main
 ### Docker Deployment
 
 Build and run with Docker Compose:
+
 ```bash
 docker-compose up -d
 ```
@@ -74,6 +82,7 @@ docker-compose up -d
 ## API Documentation
 
 When the service is running, you can access:
+
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 - OpenAPI JSON: `http://localhost:8000/openapi.json`
@@ -81,6 +90,7 @@ When the service is running, you can access:
 ## Usage Examples
 
 ### Connecting a Service
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/services/connect" \
      -H "Content-Type: application/json" \
@@ -94,6 +104,7 @@ curl -X POST "http://localhost:8000/api/v1/services/connect" \
 ```
 
 ### Starting a Scan
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/scan/start" \
      -H "Content-Type: application/json" \
