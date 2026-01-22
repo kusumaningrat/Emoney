@@ -22,26 +22,11 @@ class ScanService:
         self.status_service = ScanStatusService(scan_repository)
     
     def _init_connectors(self):
-        """Initialize connectors for different EMoney service types"""
-        from app.connectors.account_connector import EMoneyAccountConnector
-        from app.connectors.client_connector import EMoneyClientConnector
-        from app.connectors.financial_planning_connector import EMoneyFinancialPlanningConnector
-        from app.connectors.identity_connector import EMoneyIdentityConnector
+        """Initialize master connector for all EMoney service types"""
+        from app.connectors.emoney_master_connector import EMoneyMasterConnector
 
-        # Initialize all EMoney connectors
-        self.connectors = {
-            "account": EMoneyAccountConnector(),
-            "client": EMoneyClientConnector(),
-            "financial_planning": EMoneyFinancialPlanningConnector(),
-            "identity": EMoneyIdentityConnector()
-        }
-    
-    def _get_connector(self, scan_type: str):
-        """Get the appropriate connector for the EMoney scan type"""
-        connector = self.connectors.get(scan_type)
-        if not connector:
-            raise ValueError(f"No connector available for EMoney scan type: {scan_type}")
-        return connector
+        # Initialize EMoney master connector
+        self.connector = EMoneyMasterConnector()
     
     def _validate_entity_types(self, scan_type: str, entity_types: List[str]) -> List[str]:
         """
@@ -109,13 +94,6 @@ class ScanService:
         auth = scan_request.get("auth", {})
         filters = scan_request.get("filters", {})
         
-        # Validate scan type and get EMoney connector
-        try:
-            connector = self._get_connector(scan_type)
-            logger.debug(f"Using EMoney connector {connector.__class__.__name__} for scan type {scan_type}")
-        except ValueError as e:
-            raise ValueError(f"Invalid EMoney scan type: {scan_type}. {str(e)}")
-        
         # Create scan in database
         scan, entity_results = await self.scan_repository.create(
             scan_type=scan_type,
@@ -152,8 +130,8 @@ class ScanService:
                 logger.info(f"EMoney entity scan config: {entity_scan_config}")
 
                 try:
-                    # Make the API call for this entity type using the appropriate EMoney connector
-                    response = await connector.start_scan(entity_scan_config)
+                    # Make the API call for this entity type using the master connector
+                    response = await self.connector.start_scan(entity_scan_config)
                     logger.info(f"EMoney connector response for {entity_result.entity_type}: {response}")
                     
                     # CRITICAL: Extract the actual job_id from the pipeline service response
@@ -164,8 +142,6 @@ class ScanService:
                         entity_result.job_id = actual_job_id
                         pipeline_job_ids.append(actual_job_id)
                         logger.info(f"Stored job_id {actual_job_id} for entity {entity_result.entity_type}")
-                    
-                    await asyncio.sleep(5)
                 except Exception as e:
                     logger.error(f"Error starting EMoney scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                     continue
@@ -343,9 +319,6 @@ class ScanService:
         try:
             logger.info(f"Cancelling EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate EMoney connector for this scan type
-            connector = self._get_connector(scan_type)
-            
             # Update scan status to CANCELLED
             scan = await self.scan_repository.update_status(scan.id, ScanStatus.CANCELLED)
             
@@ -355,7 +328,7 @@ class ScanService:
                 try:
                     # Make the API call to cancel the EMoney entity scan
                     logger.info(f"Cancelling EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
-                    await connector.cancel_scan(entity_result.id)
+                    await self.connector.cancel_scan(entity_result.id, scan_type)
                     
                     # Update entity result status
                     await self.scan_repository.update_entity_result(
@@ -400,16 +373,13 @@ class ScanService:
         try:
             logger.info(f"Removing EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate EMoney connector for this scan type
-            connector = self._get_connector(scan_type)
-            
             # First cancel each entity scan if it's running
             for entity_result in entity_results:
                 if entity_result.status in ('pending', 'processing', 'paused'):
                     try:
                         # Make the API call to cancel the EMoney entity scan
                         logger.info(f"Cancelling EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
-                        await connector.cancel_scan(entity_result.id)
+                        await self.connector.cancel_scan(entity_result.id, scan_type)
                     except Exception as e:
                         logger.error(f"Error cancelling EMoney scan for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                         continue
@@ -417,7 +387,7 @@ class ScanService:
                 # Then remove the scan data
                 try:
                     logger.info(f"Removing EMoney {scan_type} scan data for entity type {entity_result.entity_type} with ID {entity_result.id}")
-                    await connector.remove_scan(entity_result.id)
+                    await self.connector.remove_scan(entity_result.id, scan_type)
                 except Exception as e:
                     logger.error(f"Error removing EMoney scan data for entity type {entity_result.entity_type}: {str(e)}", exc_info=True)
                     continue
@@ -470,9 +440,6 @@ class ScanService:
         try:
             logger.info(f"Pausing EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate EMoney connector for this scan type
-            connector = self._get_connector(scan_type)
-            
             # Update scan status to PAUSED
             scan = await self.scan_repository.update_status(scan.id, ScanStatus.PAUSED)
             
@@ -482,7 +449,7 @@ class ScanService:
                 try:
                     # Make the API call to pause the EMoney entity scan
                     logger.info(f"Pausing EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
-                    await connector.pause_scan(entity_result.id)
+                    await self.connector.pause_scan(entity_result.id, scan_type)
                     
                     # Update entity result status
                     await self.scan_repository.update_entity_result(
@@ -535,9 +502,6 @@ class ScanService:
         try:
             logger.info(f"Resuming EMoney {scan_type} scan with ID {scan_id}")
             
-            # Get the appropriate EMoney connector for this scan type
-            connector = self._get_connector(scan_type)
-            
             # Update scan status to RUNNING
             scan = await self.scan_repository.update_status(scan.id, ScanStatus.RUNNING)
             
@@ -547,7 +511,7 @@ class ScanService:
                 try:
                     # Make the API call to resume the EMoney entity scan
                     logger.info(f"Resuming EMoney {scan_type} scan for entity type {entity_result.entity_type} with ID {entity_result.id}")
-                    await connector.resume_scan(entity_result.id)
+                    await self.connector.resume_scan(entity_result.id, scan_type)
                     
                     # Update entity result status
                     await self.scan_repository.update_entity_result(
@@ -715,9 +679,6 @@ class ScanService:
         """
         logger.info(f"Streaming data for EMoney {scan_type} scan with ID {scan.id} via connectors")
         
-        # Get the appropriate EMoney connector for this scan type
-        connector = self._get_connector(scan_type)
-        
         # Initialize counters for total records and batches
         total_count = 0
         total_batches = 0
@@ -733,8 +694,9 @@ class ScanService:
                 logger.info(f"Streaming EMoney {scan_type} data for entity type {entity_result.entity_type} with ID {stream_id}")
                 
                 # Stream data for this specific entity result
-                response = await connector.stream_data(
-                    stream_id,  # Use job_id or entity result ID
+                response = await self.connector.stream_data(
+                    stream_id,
+                    scan_type,
                     offset=offset,
                     limit=limit
                 )
