@@ -98,8 +98,8 @@ EOF
       }
 
       resources {
-        cpu    = 200
-        memory = 200
+        cpu    = 100
+        memory = 100
       }
     }
   }

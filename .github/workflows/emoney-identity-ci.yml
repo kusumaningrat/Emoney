@@ -49,9 +49,42 @@ jobs:
       - name: Save image tag
         run: echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
 
-  deploy:
+  security-scan:
     runs-on: self-hosted
     needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trivy scan (fast)
+        run: |
+          docker pull ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
+
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/root" \
+            aquasec/trivy:latest image \
+            --skip-db-update \
+            --security-checks vuln \
+            --format json \
+            --output /root/emoney-identity.json \
+            ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
+
+      - name: Upload Trivy report to DefectDojo
+        run: |
+          curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=Trivy Scan" \
+            -F "file=@trivy-report.json" \
+            -F "product_name=EMoney_Identity_Scan" \
+            -F "product_type_name=Web Application" \
+            -F "engagement_name=CI Pipeline" \
+            -F "auto_create_context=true"
+
+  deploy:
+    runs-on: self-hosted
+    needs: security-scan
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
