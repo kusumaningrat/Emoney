@@ -68,6 +68,10 @@ jobs:
             --output /root/emoney-identity-report.json \
             ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
 
+      - name: Verify Trivy report exists
+        run: |
+          ls -lh /root/emoney-identity-report.json
+
       - name: Upload Trivy report to DefectDojo
         run: |
           curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
