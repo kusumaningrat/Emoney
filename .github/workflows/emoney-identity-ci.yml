@@ -74,14 +74,14 @@ jobs:
 
       - name: Verify Trivy report exists
         run: |
-          ls -lh /tmp/emoney-identity-report.json
+          ls -lh emoney-identity-report.json
 
       - name: Upload Trivy report to DefectDojo
         run: |
           curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -F "scan_type=Trivy Scan" \
-            -F "file=@/tmp/emoney-identity-report.json" \
+            -F "file=@emoney-identity-report.json" \
             -F "product_name=EMoney_Identity_Scan" \
             -F "product_type_name=Web Application" \
             -F "engagement_name=CI Pipeline" \
