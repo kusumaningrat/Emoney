@@ -63,7 +63,6 @@ jobs:
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD:/root" \
             aquasec/trivy:latest image \
-            --skip-db-update \
             --security-checks vuln \
             --format json \
             --output /root/emoney-identity.json \
