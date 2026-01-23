@@ -65,7 +65,7 @@ jobs:
             aquasec/trivy:latest image \
             --security-checks vuln \
             --format json \
-            --output /root/emoney-identity.json \
+            --output /root/emoney-identity-report.json \
             ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
 
       - name: Upload Trivy report to DefectDojo
@@ -73,7 +73,7 @@ jobs:
           curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -F "scan_type=Trivy Scan" \
-            -F "file=@trivy-report.json" \
+            -F "file=@/root/emoney-identity-report.json" \
             -F "product_name=EMoney_Identity_Scan" \
             -F "product_type_name=Web Application" \
             -F "engagement_name=CI Pipeline" \
