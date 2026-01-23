@@ -53,59 +53,59 @@ jobs:
       - name: Save image tag
         run: echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
 
-  # security-scan:
-  #   runs-on: self-hosted
-  #   needs: build
+  security-scan:
+    runs-on: self-hosted
+    needs: build
 
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Trivy scan (fast)
-  #       run: |
-  #         docker run --rm \
-  #           -v /var/run/docker.sock:/var/run/docker.sock \
-  #           -v "$PWD:/tmp" \
-  #           aquasec/trivy:latest image \
-  #           --security-checks vuln \
-  #           --format json \
-  #           --output /tmp/emoney-identity-report.json \
-  #           ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
+      - name: Trivy scan (fast)
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/tmp" \
+            aquasec/trivy:latest image \
+            --security-checks vuln \
+            --format json \
+            --output "$PWD"/emoney-identity-report.json \
+            ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
 
-  #     - name: Verify Trivy report exists
-  #       run: |
-  #         ls -lh /tmp/emoney-identity-report.json
+      - name: Verify Trivy report exists
+        run: |
+          ls -lh /tmp/emoney-identity-report.json
 
-  #     - name: Upload Trivy report to DefectDojo
-  #       run: |
-  #         curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
-  #           -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-  #           -F "scan_type=Trivy Scan" \
-  #           -F "file=@/root/emoney-identity-report.json" \
-  #           -F "product_name=EMoney_Identity_Scan" \
-  #           -F "product_type_name=Web Application" \
-  #           -F "engagement_name=CI Pipeline" \
-  #           -F "auto_create_context=true"
+      - name: Upload Trivy report to DefectDojo
+        run: |
+          curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=Trivy Scan" \
+            -F "file=@"$PWD"/emoney-identity-report.json" \
+            -F "product_name=EMoney_Identity_Scan" \
+            -F "product_type_name=Web Application" \
+            -F "engagement_name=CI Pipeline" \
+            -F "auto_create_context=true"
 
-  # deploy:
-  #   runs-on: self-hosted
-  #   needs: security-scan
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  deploy:
+    runs-on: self-hosted
+    needs: security-scan
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Setup `nomad`
-  #       uses: hashicorp/setup-nomad@main
-  #       id: setup
-  #       with:
-  #         version: ${{ env.PRODUCT_VERSION }}
+      - name: Setup `nomad`
+        uses: hashicorp/setup-nomad@main
+        id: setup
+        with:
+          version: ${{ env.PRODUCT_VERSION }}
 
-  #     - name: Update Nomad deployment with image tag
-  #       run: |
-  #         sed -i "s|IMAGE_TAG_PLACEHOLDER|${{ env.IMAGE_TAG }}|g" nomad/emoney-identity.hcl
+      - name: Update Nomad deployment with image tag
+        run: |
+          sed -i "s|IMAGE_TAG_PLACEHOLDER|${{ env.IMAGE_TAG }}|g" nomad/emoney-identity.hcl
 
-  #     - name: Request deployment to Nomad
-  #       env:
-  #         NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
-  #         NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
-  #       run: nomad job run nomad/emoney-identity.hcl
+      - name: Request deployment to Nomad
+        env:
+          NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
+          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+        run: nomad job run nomad/emoney-identity.hcl
