@@ -11,6 +11,10 @@ on:
       - "eMoney-identity/**"
 
 env:
+  PRODUCT_NAME: EMoney_Identity_Scan
+  PRODUCT_TYPE: Web Application
+  ENGAGEMENT_NAME: CI Pipeline
+
   PRODUCT_VERSION: "latest" # or: "latest"
   IMAGE_TAG: ${{ github.ref_name }}-${{ github.sha }}
   DOCKER_IMAGE: image-reg.ops.glynac.ai/emoney-advisor/emoney-identity
@@ -20,8 +24,38 @@ permissions:
   id-token: write
 
 jobs:
+  security-precheck:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:latest detect \
+            --source=/repo \
+            --report-format=json \
+            --report-path=/repo/gitleaks-report.json \
+            --no-git
+
+      - name: Upload Gitleaks report to DefectDojo
+        run: |
+          curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
+            -F "scan_type=Gitleaks Scan" \
+            -F "file=@gitleaks-report.json" \
+            -F "product_name=${{ env.PRODUCT_NAME }}" \
+            -F "product_type_name=${{ env.PRODUCT_TYPE }}" \
+            -F "engagement_name=${{ env.ENGAGEMENT_NAME }}" \
+            -F "auto_create_context=true"
   build:
     runs-on: self-hosted
+    needs: security-precheck
 
     steps:
       - name: checkout
@@ -82,9 +116,9 @@ jobs:
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -F "scan_type=Trivy Scan" \
             -F "file=@emoney-identity-report.json" \
-            -F "product_name=EMoney_Identity_Scan" \
-            -F "product_type_name=Web Application" \
-            -F "engagement_name=CI Pipeline" \
+            -F "product_name=${{ env.PRODUCT_NAME }}" \
+            -F "product_type_name=${{ env.PRODUCT_TYPE }}" \
+            -F "engagement_name=${{ env.ENGAGEMENT_NAME }}" \
             -F "auto_create_context=true"
 
   deploy:
