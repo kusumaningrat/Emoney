@@ -31,7 +31,7 @@ The eMoney Service handles extraction of data from the eMoney Advisor platform, 
 - **Async Processing**: Non-blocking scan operations with real-time status tracking
 - **Pause/Resume Support**: Ability to pause and resume scans with checkpoint recovery
 - **Multi-Environment**: Separate configurations for dev/staging/prod
-- **Comprehensive Monitoring**: Health checks, logging, and pipeline information
+- **Comprehensive Monitoring**: Health checks, logging, and pipeline information.
 
 ## 🔐 Authentication
 
