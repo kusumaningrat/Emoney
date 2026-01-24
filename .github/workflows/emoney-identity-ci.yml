@@ -34,7 +34,9 @@ jobs:
           fetch-depth: 0
 
       - name: Gitleaks scan
+        id: gitleaks
         run: |
+          set +e
           docker run --rm \
             -v "$PWD:/repo" \
             zricethezav/gitleaks:latest detect \
@@ -42,8 +44,11 @@ jobs:
             --report-format=json \
             --report-path=/repo/gitleaks-report.json \
             --no-git
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+          set -e
 
       - name: Upload Gitleaks report to DefectDojo
+        if: always()
         run: |
           curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
@@ -53,6 +58,12 @@ jobs:
             -F "product_type_name=${{ env.PRODUCT_TYPE }}" \
             -F "engagement_name=${{ env.ENGAGEMENT_NAME }}" \
             -F "auto_create_context=true"
+
+      - name: Stop pipeline if leaks found
+        if: steps.gitleaks.outputs.exit_code != '0'
+        run: |
+          echo "❌ Secrets detected — stopping pipeline"
+          exit 1
   build:
     runs-on: self-hosted
     needs: security-precheck
