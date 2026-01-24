@@ -14,8 +14,8 @@ job "emoney-master-App" {
 
     network {
       port "http" {
-        static       = 5079
-        to           = 5079
+        static       = 5709
+        to           = 5709
         host_network = "private"
       }
     }
