@@ -99,22 +99,36 @@ class ScanRepository:
         Returns:
             Optional[Scan]: Updated scan if found, None otherwise
         """
-        update_values = {"status": scan_status}
-        
-        # Set timestamps based on status
-        if scan_status == ScanStatus.RUNNING:
-            update_values["started_at"] = datetime.utcnow()
-        
-        if scan_status in (ScanStatus.COMPLETED, ScanStatus.FAILED, ScanStatus.CANCELLED):
-            update_values["completed_at"] = datetime.utcnow()
-        
-        # Add timestamp for PAUSED status
-        if scan_status == ScanStatus.PAUSED:
-            update_values["updated_at"] = datetime.utcnow()
+        try:
+            update_values = {"status": scan_status}
             
-        query = update(Scan).where(Scan.id == scan_id).values(**update_values).returning(Scan)
-        result = await self.session.execute(query)
-        return result.scalar_one_or_none()
+            # Set timestamps based on status
+            if scan_status == ScanStatus.RUNNING:
+                update_values["started_at"] = datetime.utcnow()
+            
+            if scan_status in (ScanStatus.COMPLETED, ScanStatus.FAILED, ScanStatus.CANCELLED):
+                update_values["completed_at"] = datetime.utcnow()
+            
+            # Add timestamp for PAUSED status
+            if scan_status == ScanStatus.PAUSED:
+                update_values["updated_at"] = datetime.utcnow()
+                
+            query = update(Scan).where(Scan.id == scan_id).values(**update_values).returning(Scan)
+            result = await self.session.execute(query)
+            updated_scan = result.scalar_one_or_none()
+            
+            if updated_scan:
+                await self.session.commit()
+                logger.info(f"Updated scan {scan_id} status to {scan_status.value}, completed_at: {update_values.get('completed_at')}")
+                return updated_scan
+            else:
+                logger.warning(f"Scan {scan_id} not found for status update")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error updating scan {scan_id} status: {str(e)}", exc_info=True)
+            await self.session.rollback()
+            raise
     
     async def update_entity_result(self, entity_id: str, **update_values) -> Optional[ScanEntityResult]:
         """
