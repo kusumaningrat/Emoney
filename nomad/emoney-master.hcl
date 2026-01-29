@@ -1,7 +1,7 @@
 job "emoney-master-App" { 
   datacenters = ["glynac-dc"]
   type = "service"
-  namespace = "default"
+  namespace = "extraction-service"
 
   update {
     max_parallel     = 1
