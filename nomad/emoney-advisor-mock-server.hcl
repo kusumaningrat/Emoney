@@ -46,11 +46,7 @@ job "Emoney_Advisor_Mock_Server-App" {
         image       = "harbor-registry.service.consul:8085/emoney-advisor/emoney-advisor-mock-server:IMAGE_TAG_PLACEHOLDER"
         ports       = ["http"]
         dns_servers = ["172.17.0.1", "172.18.0.1", "8.8.8.8", "8.8.4.4", "1.1.1.1"]
-        auth {
-          username       = "{{ with secret \"secrets/harbor/login\" }}{{ .Data.data.username }}{{ end }}"
-          password       = "{{ with secret \"secrets/harbor/login\" }}{{ .Data.data.password }}{{ end }}"
-          server_address = "{{ with secret \"secrets/harbor/login\" }}{{ .Data.data.server_address }}{{ end }}"
-        }
+
       }
 
       vault {
