@@ -1,6 +1,6 @@
 eMoney Advisor Mock Server
 A FastAPI-based mock implementation of eMoney Advisor APIs with clean architecture using factory pattern and base handler classes, designed for financial planning and wealth management functionality.
-Features
+Features.
 
 Complete mock implementation of eMoney Advisor API services
 Factory pattern architecture with entity-specific services
