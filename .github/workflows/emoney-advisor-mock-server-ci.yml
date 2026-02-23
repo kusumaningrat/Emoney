@@ -71,3 +71,51 @@ jobs:
           NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
           NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: nomad job run nomad/emoney-advisor-mock-server.hcl
+
+  notify:
+    runs-on: self-hosted
+    needs: [build, deploy]
+    if: always()
+
+    steps:
+      - name: Send Telegram Notification
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
+          IMAGE_TAG: ${{ needs.build.outputs.IMAGE_TAG }}
+          JOB_STATUS: ${{ needs.deploy.result }}
+        run: |
+          PIPELINE_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BRANCH="${{ github.ref_name }}"
+          ACTOR="${{ github.actor }}"
+
+          if [ "$JOB_STATUS" = "success" ]; then
+            STATUS="SUCCESS"
+            EMOJI="✅"
+          elif [ "$JOB_STATUS" = "cancelled" ]; then
+            STATUS="CANCELLED"
+            EMOJI="⚠️"
+          else
+            STATUS="FAILED"
+            EMOJI="❌"
+          fi
+
+          MESSAGE=$(printf "🚀 EMoney Mock Server Deployment\n\n📦 Image: %s\n🌿 Branch: %s\n👤 Triggered by: %s\n📊 Status: %s %s\n\n🔗 %s" \
+            "$IMAGE_TAG" \
+            "$BRANCH" \
+            "$ACTOR" \
+            "$EMOJI" \
+            "$STATUS" \
+            "$PIPELINE_URL")
+
+          if [ -z "$TELEGRAM_THREAD_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+              -d "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MESSAGE}"
+          else
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+              -d "chat_id=${TELEGRAM_CHAT_ID}" \
+              -d "message_thread_id=${TELEGRAM_THREAD_ID}" \
+              --data-urlencode "text=${MESSAGE}"
+          fi
