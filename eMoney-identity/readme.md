@@ -1,6 +1,6 @@
 # Emoney-Identity Data Extraction Service
 
-A robust Flask-RESTX API service for extracting Emoney-Identity data using DLT (Data Load Tool) and PostgreSQL. Features comprehensive Swagger documentation, Docker support, and production-ready deployment.
+A robust Flask-RESTX API service for extracting Emoney-Identity data using DLT (Data Load Tool) and PostgreSQL. Features comprehensive Swagger documentation, Docker support, and production-ready deployment
 
 ## Features
 
@@ -68,12 +68,14 @@ emoney-identity-extraction/
 ### Quick Start with Docker
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repository-url>
    cd emoney-identity-extraction
    ```
 
 2. **Set up environment variables**:
+
    ```bash
    cp .env.example .env
    # Edit .env with your Emoney-Identity API credentials
@@ -82,34 +84,38 @@ emoney-identity-extraction/
 3. **Start services by environment**:
 
    **Development Environment (with tools):**
+
    ```bash
    # Start development services with pgAdmin and Redis Commander
    docker-compose --profile dev up -d
-   
+
    # Start core development services only
    docker-compose up -d
    ```
 
    **Staging Environment:**
+
    ```bash
    # Start staging services
    docker-compose --profile stage up -d
    ```
 
    **Production Environment:**
+
    ```bash
    # Start production services
    docker-compose --profile prod up -d
    ```
 
 4. **Verify the setup**:
+
    ```bash
    # Check service health
    curl http://localhost:4709/health
-   
+
    # View Swagger documentation
    open http://localhost:4709/docs/
-   
+
    # Access development tools (dev profile only)
    open http://localhost:8080/  # pgAdmin
    open http://localhost:8081/  # Redis Commander
@@ -118,11 +124,13 @@ emoney-identity-extraction/
 ### Local Development Setup
 
 1. **Install Python dependencies**:
+
    ```bash
    pip install -r requirements.txt
    ```
 
 2. **Set up environment variables**:
+
    ```bash
    export FLASK_ENV=development
    export FLASK_DEBUG=true
@@ -132,6 +140,7 @@ emoney-identity-extraction/
    ```
 
 3. **Start PostgreSQL** (using Docker):
+
    ```bash
    docker run -d --name emoney_identity_postgres \
      -e POSTGRES_DB=emoney_identity_data_dev \
@@ -148,30 +157,32 @@ emoney-identity-extraction/
 ## API Documentation
 
 ### Swagger UI
+
 Access the interactive API documentation at: **http://localhost:4709/docs/**
 
 ### Available Endpoints
 
-| Method | Endpoint | Description | Parameters |
-|--------|----------|-------------|------------|
-| `GET` | `/health` | Health check endpoint | None |
-| `GET` | `/stats` | Service statistics | None |
-| `GET` | `/docs/` | Swagger UI documentation | None |
-| `POST` | `/scan/start` | Start a new data extraction scan | Body: scanId, organizationId, type, auth, filters |
-| `GET` | `/scan/{scan_id}/status` | Get scan status | Path: scan_id |
-| `POST` | `/scan/{scan_id}/cancel` | Cancel a running scan | Path: scan_id |
-| `GET` | `/scan/list` | List all scans with pagination | Query: organizationId, limit, offset |
-| `GET` | `/scan/statistics` | Get scan statistics | Query: organizationId |
-| `DELETE` | `/scan/{scan_id}/remove` | Remove scan and data | Path: scan_id |
-| `GET` | `/results/{scan_id}/tables` | Get available tables | Path: scan_id |
-| `GET` | `/results/{scan_id}/result` | Get scan results | Path: scan_id; Query: tableName, limit, offset |
-| `GET` | `/pipeline/info` | Get DLT pipeline info | None |
-| `POST` | `/maintenance/cleanup` | Clean up old scans | Body: daysOld |
-| `POST` | `/maintenance/detect-crashed` | Detect crashed jobs | Query: timeoutMinutes |
+| Method   | Endpoint                      | Description                      | Parameters                                        |
+| -------- | ----------------------------- | -------------------------------- | ------------------------------------------------- |
+| `GET`    | `/health`                     | Health check endpoint            | None                                              |
+| `GET`    | `/stats`                      | Service statistics               | None                                              |
+| `GET`    | `/docs/`                      | Swagger UI documentation         | None                                              |
+| `POST`   | `/scan/start`                 | Start a new data extraction scan | Body: scanId, organizationId, type, auth, filters |
+| `GET`    | `/scan/{scan_id}/status`      | Get scan status                  | Path: scan_id                                     |
+| `POST`   | `/scan/{scan_id}/cancel`      | Cancel a running scan            | Path: scan_id                                     |
+| `GET`    | `/scan/list`                  | List all scans with pagination   | Query: organizationId, limit, offset              |
+| `GET`    | `/scan/statistics`            | Get scan statistics              | Query: organizationId                             |
+| `DELETE` | `/scan/{scan_id}/remove`      | Remove scan and data             | Path: scan_id                                     |
+| `GET`    | `/results/{scan_id}/tables`   | Get available tables             | Path: scan_id                                     |
+| `GET`    | `/results/{scan_id}/result`   | Get scan results                 | Path: scan_id; Query: tableName, limit, offset    |
+| `GET`    | `/pipeline/info`              | Get DLT pipeline info            | None                                              |
+| `POST`   | `/maintenance/cleanup`        | Clean up old scans               | Body: daysOld                                     |
+| `POST`   | `/maintenance/detect-crashed` | Detect crashed jobs              | Query: timeoutMinutes                             |
 
 ### Example API Usage
 
 #### Start a Scan
+
 ```bash
 curl -X POST http://localhost:4709/api/v1/scan/start \
   -H "Content-Type: application/json" \
@@ -192,11 +203,13 @@ curl -X POST http://localhost:4709/api/v1/scan/start \
 ```
 
 #### Check Scan Status
+
 ```bash
 curl http://localhost:4709/api/v1/scan/emoney-identity-scan-001/status
 ```
 
 #### List All Scans
+
 ```bash
 curl "http://localhost:4709/api/v1/scan/list?organizationId=org-12345&limit=10"
 ```
@@ -205,28 +218,29 @@ curl "http://localhost:4709/api/v1/scan/list?organizationId=org-12345&limit=10"
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `FLASK_ENV` | Flask environment | `development` |
-| `FLASK_DEBUG` | Enable debug mode | `false` |
-| `DB_HOST` | PostgreSQL host | `postgres_dev` |
-| `DB_PORT` | PostgreSQL port | `5432` |
-| `DB_NAME` | Database name | `emoney_identity_data_dev` |
-| `DB_USER` | Database user | `postgres` |
-| `DB_PASSWORD` | Database password | `password123` |
-| `DB_SCHEMA` | Database schema | `emoney_identity_dev` |
-| `EMONEY-IDENTITY_API_TOKEN` | Emoney-Identity API token | `""` |
-| `EMONEY-IDENTITY_API_TIMEOUT` | API timeout seconds | `30` |
-| `EMONEY-IDENTITY_API_RATE_LIMIT` | API rate limit | `100` |
-| `DLT_PIPELINE_NAME` | DLT pipeline name | `emoney_identity_pipeline_dev` |
-| `MAX_CONCURRENT_SCANS` | Max concurrent scans | `3` |
-| `LOG_LEVEL` | Logging level | `INFO` |
+| Variable                         | Description               | Default                        |
+| -------------------------------- | ------------------------- | ------------------------------ |
+| `FLASK_ENV`                      | Flask environment         | `development`                  |
+| `FLASK_DEBUG`                    | Enable debug mode         | `false`                        |
+| `DB_HOST`                        | PostgreSQL host           | `postgres_dev`                 |
+| `DB_PORT`                        | PostgreSQL port           | `5432`                         |
+| `DB_NAME`                        | Database name             | `emoney_identity_data_dev`     |
+| `DB_USER`                        | Database user             | `postgres`                     |
+| `DB_PASSWORD`                    | Database password         | `password123`                  |
+| `DB_SCHEMA`                      | Database schema           | `emoney_identity_dev`          |
+| `EMONEY-IDENTITY_API_TOKEN`      | Emoney-Identity API token | `""`                           |
+| `EMONEY-IDENTITY_API_TIMEOUT`    | API timeout seconds       | `30`                           |
+| `EMONEY-IDENTITY_API_RATE_LIMIT` | API rate limit            | `100`                          |
+| `DLT_PIPELINE_NAME`              | DLT pipeline name         | `emoney_identity_pipeline_dev` |
+| `MAX_CONCURRENT_SCANS`           | Max concurrent scans      | `3`                            |
+| `LOG_LEVEL`                      | Logging level             | `INFO`                         |
 
 ### Multi-Environment Configuration
 
 Each environment has its own configuration:
 
 **Development:**
+
 - Database: `emoney_identity_data_dev`
 - Port: `4709`
 - Debug mode enabled
@@ -234,12 +248,14 @@ Each environment has its own configuration:
 - Development tools available
 
 **Staging:**
+
 - Database: `emoney_identity_data_stage`
 - Port: `5709`
 - Production-like settings
 - Staging-specific logging
 
 **Production:**
+
 - Database: `emoney_identity_data_prod`
 - Port: `3709`
 - Optimized performance
@@ -249,6 +265,7 @@ Each environment has its own configuration:
 ## Development
 
 ### Running Tests
+
 ```bash
 # Run all tests
 pytest
@@ -261,6 +278,7 @@ pytest tests/test_api.py -v
 ```
 
 ### Database Access
+
 ```bash
 # Development database
 docker-compose exec postgres_dev psql -U postgres -d emoney_identity_data_dev
@@ -270,12 +288,14 @@ SELECT * FROM emoney_identity_dev.main_data LIMIT 10;
 ```
 
 ### Development Tools (Dev Profile)
+
 - **pgAdmin**: http://localhost:8080 (admin@emoney-identity.dev / admin123)
 - **Redis Commander**: http://localhost:8081 (admin / admin123)
 
 ## Deployment
 
 ### Production Deployment
+
 ```bash
 # Build and start production services
 docker-compose --profile prod build
@@ -286,12 +306,14 @@ curl http://localhost:3709/health
 ```
 
 ### Scaling
+
 ```bash
 # Scale production service
 docker-compose --profile prod up -d --scale emoney_identity_service_prod=3
 ```
 
 ### Monitoring
+
 ```bash
 # View logs
 docker-compose logs -f emoney_identity_service_dev
@@ -305,6 +327,7 @@ docker stats
 ### Common Issues
 
 **Service won't start:**
+
 ```bash
 # Check logs
 docker-compose logs emoney_identity_service_dev
@@ -314,6 +337,7 @@ docker-compose restart emoney_identity_service_dev
 ```
 
 **Database connection issues:**
+
 ```bash
 # Check database status
 docker-compose exec postgres_dev pg_isready -U postgres
@@ -324,11 +348,13 @@ docker-compose up -d
 ```
 
 **Emoney-Identity API issues:**
+
 - Verify API token in `.env` file
 - Check Emoney-Identity API rate limits
 - Validate API endpoint URLs
 
 ### Port Conflicts
+
 If you encounter port conflicts, update the ports in your configuration and rebuild:
 
 ```bash
