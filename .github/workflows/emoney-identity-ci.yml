@@ -39,11 +39,10 @@ jobs:
           set +e
           docker run --rm \
             -v "$PWD:/repo" \
-            zricethezav/gitleaks:latest detect \
+            zricethezav/gitleaks:v8.18.2 detect \
             --source=/repo \
             --report-format=json \
             --report-path=/repo/gitleaks-report.json \
-            --no-git
           echo "exit_code=$?" >> $GITHUB_OUTPUT
           set -e
 
@@ -106,15 +105,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Trivy scan (fast)
+      - name: Create Trivy cache directory
+        run: sudo mkdir -p /opt/trivy-cache
+
+      - name: Trivy scan (optimized)
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /opt/trivy-cache:/root/.cache/trivy \
             -v "$PWD:/tmp" \
-            aquasec/trivy:latest image \
-            --security-checks vuln \
+            aquasec/trivy:0.50.1 image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
             --format json \
             --output /tmp/emoney-identity-report.json \
+            --exit-code 1 \
             ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
 
       - name: Verify Trivy report exists
