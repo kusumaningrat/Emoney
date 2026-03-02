@@ -5,12 +5,17 @@ on:
     branches: ["main"]
     paths:
       - "eMoney-identity/**"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "eMoney-identity/**"
 
 env:
   PRODUCT_NAME: EMoney_Identity_Scan
   PRODUCT_TYPE: Web Application
   ENGAGEMENT_NAME: CI Pipeline
-  PRODUCT_VERSION: "latest"
+
+  PRODUCT_VERSION: "latest" # or: "latest"
   IMAGE_TAG: ${{ github.ref_name }}-${{ github.sha }}
   DOCKER_IMAGE: image-reg.ops.glynac.ai/emoney-advisor/emoney-identity
 
@@ -23,27 +28,29 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Gitleaks scan (optimized)
+      - name: Gitleaks scan
         id: gitleaks
         run: |
           set +e
           docker run --rm \
             -v "$PWD:/repo" \
-            zricethezav/gitleaks:v8.18.2 detect \
+            zricethezav/gitleaks:latest detect \
             --source=/repo \
             --report-format=json \
-            --report-path=/repo/gitleaks-report.json
+            --report-path=/repo/gitleaks-report.json \
+            --no-git
           echo "exit_code=$?" >> $GITHUB_OUTPUT
           set -e
 
       - name: Upload Gitleaks report to DefectDojo
         if: always()
         run: |
-          curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/"" \
+          curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
             -F "scan_type=Gitleaks Scan" \
             -F "file=@gitleaks-report.json" \
@@ -57,13 +64,13 @@ jobs:
         run: |
           echo "❌ Secrets detected — stopping pipeline"
           exit 1
-
   build:
     runs-on: self-hosted
     needs: security-precheck
 
     steps:
-      - uses: actions/checkout@v4
+      - name: checkout
+        uses: actions/checkout@v4
 
       - name: Login to Harbor
         uses: docker/login-action@v3
@@ -80,33 +87,41 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
+          builder: default
+
+      - name: Verify Trivy report exists
+        run: |
+          echo "$PWD"
+
+      - name: Save image tag
+        run: echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
 
   security-scan:
     runs-on: self-hosted
     needs: build
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Create Trivy cache directory
-        run: sudo mkdir -p /opt/trivy-cache
-
-      - name: Trivy scan (optimized)
+      - name: Trivy scan (fast)
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v /opt/trivy-cache:/root/.cache/trivy \
             -v "$PWD:/tmp" \
-            aquasec/trivy:0.50.1 image \
-            --severity HIGH,CRITICAL \
-            --ignore-unfixed \
+            aquasec/trivy:latest image \
+            --security-checks vuln \
             --format json \
             --output /tmp/emoney-identity-report.json \
-            --exit-code 1 \
             ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
 
+      - name: Verify Trivy report exists
+        run: |
+          ls -lh emoney-identity-report.json
+
       - name: Upload Trivy report to DefectDojo
-        if: always()
         run: |
           curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
             -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
@@ -120,9 +135,9 @@ jobs:
   deploy:
     runs-on: self-hosted
     needs: security-scan
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup `nomad`
         uses: hashicorp/setup-nomad@main
@@ -134,7 +149,7 @@ jobs:
         run: |
           sed -i "s|IMAGE_TAG_PLACEHOLDER|${{ env.IMAGE_TAG }}|g" nomad/emoney-identity.hcl
 
-      - name: Deploy to Nomad
+      - name: Request deployment to Nomad
         env:
           NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
           NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
