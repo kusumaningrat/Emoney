@@ -82,6 +82,10 @@ jobs:
             -Dsonar.projectKey=emoney-identity
             -Dsonar.projectName=emoney-identity
             -Dsonar.sources=.
+            -Dsonar.python.version=3.11
+            -Dsonar.javascript.file.suffixes=-
+            -Dsonar.typescript.file.suffixes=-
+            -Dsonar.exclusions=**/__pycache__/**,**/venv/**,**/migrations/**
         env:
           SONAR_HOST_URL: ${{ vars.SONAR_ADDR }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
