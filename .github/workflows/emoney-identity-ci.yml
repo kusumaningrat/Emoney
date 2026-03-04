@@ -94,7 +94,7 @@ jobs:
 
   build:
     runs-on: self-hosted
-    needs: sonarqube
+    needs: sonar
 
     steps:
       - name: Checkout code
