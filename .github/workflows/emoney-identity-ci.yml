@@ -190,8 +190,6 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
 
-          IMAGE_TAG: ${{ needs.build.outputs.IMAGE_TAG }}
-
           GITLEAKS_STATUS: ${{ needs.security-precheck.result }}
           TRIVY_STATUS: ${{ needs.security-scan.result }}
           SONAR_STATUS: ${{ needs.sonar.result }}
@@ -202,44 +200,41 @@ jobs:
           BRANCH="${{ github.ref_name }}"
           ACTOR="${{ github.actor }}"
 
-          EMOJI="✅"
-          STATUS="SUCCESS"
           DETAILS=""
+          FAILED_STAGE=""
 
-          # Detect failures
-          if [ "$GITLEAKS_STATUS" != "success" ]; then
-            EMOJI="❌"
-            STATUS="FAILED"
-            DETAILS="${DETAILS}🔐 Gitleaks: Secrets detected\n"
+          # Only mark actual failures (not skipped)
+          if [ "$GITLEAKS_STATUS" = "failure" ]; then
+            FAILED_STAGE="Security Precheck"
+            DETAILS="🔐 Gitleaks: Secrets detected"
           fi
 
-          if [ "$SONAR_STATUS" != "success" ]; then
-            EMOJI="❌"
-            STATUS="FAILED"
-            DETAILS="${DETAILS}📊 SonarQube: Quality Gate failed\n"
+          if [ "$SONAR_STATUS" = "failure" ]; then
+            FAILED_STAGE="Code Quality"
+            DETAILS="📊 SonarQube: Quality Gate failed"
           fi
 
-          if [ "$TRIVY_STATUS" != "success" ]; then
-            EMOJI="❌"
-            STATUS="FAILED"
-            DETAILS="${DETAILS}🛡 Trivy: High/Critical vulnerabilities found\n"
+          if [ "$TRIVY_STATUS" = "failure" ]; then
+            FAILED_STAGE="Container Security"
+            DETAILS="🛡 Trivy: High/Critical vulnerabilities found"
           fi
 
-          if [ "$DEPLOY_STATUS" != "success" ]; then
-            EMOJI="❌"
-            STATUS="FAILED"
-            DETAILS="${DETAILS}🚀 Deploy: Deployment failed\n"
+          if [ "$DEPLOY_STATUS" = "failure" ]; then
+            FAILED_STAGE="Deployment"
+            DETAILS="🚀 Deployment failed"
           fi
 
-          if [ -z "$DETAILS" ]; then
+          # If nothing failed
+          if [ -z "$FAILED_STAGE" ]; then
+            STATUS="✅ SUCCESS"
             DETAILS="No issues detected."
+          else
+            STATUS="❌ FAILED at ${FAILED_STAGE}"
           fi
 
-          MESSAGE=$(printf "🚀 EMoney CI/CD Pipeline\n\n📦 Image: %s\n🌿 Branch: %s\n👤 Triggered by: %s\n\n📊 Overall Status: %s %s\n\n📝 Details:\n%s\n🔗 %s" \
-            "$IMAGE_TAG" \
+          MESSAGE=$(printf "🚀 EMoney CI/CD Pipeline\n\n🌿 Branch: %s\n👤 Triggered by: %s\n\n📊 Status: %s\n\n📝 %s\n\n🔗 %s" \
             "$BRANCH" \
             "$ACTOR" \
-            "$EMOJI" \
             "$STATUS" \
             "$DETAILS" \
             "$PIPELINE_URL")
