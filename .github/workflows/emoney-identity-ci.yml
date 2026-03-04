@@ -64,7 +64,7 @@ jobs:
           echo "❌ Secrets detected — stopping pipeline"
           exit 1
 
-  sonarqube:
+  sonar:
     runs-on: self-hosted
     needs: security-precheck
 
