@@ -85,7 +85,9 @@ jobs:
             -Dsonar.python.version=3.11
             -Dsonar.javascript.file.suffixes=-
             -Dsonar.typescript.file.suffixes=-
-            -Dsonar.exclusions=**/__pycache__/**,**/venv/**,**/migrations/**
+            -Dsonar.exclusions=**/__pycache__/**,**/venv/**,**/migrations/**,**/*.js,**/*.ts,**/*.jsx,**/*.tsx
+            -Dsonar.plugins.downloadOnlyRequired=true
+            -Dsonar.scanner.skipJreProvisioning=true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
