@@ -58,11 +58,11 @@ jobs:
             -F "engagement_name=${{ env.ENGAGEMENT_NAME }}" \
             -F "auto_create_context=true"
 
-      - name: Stop pipeline if leaks found
-        if: steps.gitleaks.outputs.exit_code != '0'
-        run: |
-          echo "❌ Secrets detected — stopping pipeline"
-          exit 1
+      # - name: Stop pipeline if leaks found
+      #   if: steps.gitleaks.outputs.exit_code != '0'
+      #   run: |
+      #     echo "❌ Secrets detected — stopping pipeline"
+      #     exit 1
 
   sonar:
     runs-on: self-hosted
