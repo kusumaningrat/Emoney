@@ -75,10 +75,9 @@ jobs:
           fetch-depth: 0
 
       - name: SonarQube Scan
-        working-directory: eMoney-identity
         uses: SonarSource/sonarqube-scan-action@v2
         with:
-          projectBaseDir: .
+          projectBaseDir: eMoney-identity
           args: >
             -Dsonar.projectKey=emoney-identity
             -Dsonar.projectName=emoney-identity
