@@ -78,7 +78,7 @@ jobs:
         working-directory: eMoney-identity
         uses: SonarSource/sonarqube-scan-action@v2
         with:
-          projectBaseDir: eMoney-identity
+          projectBaseDir: .
           args: >
             -Dsonar.projectKey=emoney-identity
             -Dsonar.projectName=emoney-identity
