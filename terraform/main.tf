@@ -4,7 +4,7 @@ provider "nomad" {
 }
 
 resource "nomad_job" "emoney_account" {
-  jobspec = templatefile("${path.module}/../nomad/emoney-account.nomad.hcl", {
+  jobspec = templatefile("${path.module}/jobs/emoney-account.nomad.hcl", {
     IMAGE_TAG = var.image_tag
   })
 }
