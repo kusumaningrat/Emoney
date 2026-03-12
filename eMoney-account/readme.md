@@ -1,6 +1,6 @@
 # Emoney-Account Data Extraction Service
 
-A robust Flask-RESTX API service for extracting Emoney-Account data using DLT (Data Load Tool) and PostgreSQL. Features comprehensive Swagger documentation, Docker support, and production-ready deployment.
+A robust Flask-RESTX API service for extracting Emoney-Account data using DLT (Data Load Tool) and PostgreSQL. Features comprehensive Swagger documentation, Docker support, and production-ready deployment
 
 ## Features
 
