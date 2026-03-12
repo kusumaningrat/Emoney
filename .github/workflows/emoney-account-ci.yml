@@ -53,21 +53,20 @@ jobs:
     runs-on: self-hosted
     needs: build
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup `nomad`
-        uses: hashicorp/setup-nomad@main
-        id: setup
-        with:
-          version: ${{ env.PRODUCT_VERSION }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-      - name: Update Nomad deployment with image tag
-        run: |
-          sed -i "s|IMAGE_TAG_PLACEHOLDER|${{ env.IMAGE_TAG }}|g" nomad/emoney-account.hcl
+      - name: Terraform Init
+        run: terraform init
+        working-directory: terraform
 
-      - name: Request deployment to Nomad
+      - name: Terraform Apply
+        working-directory: terraform
         env:
-          NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
-          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
-        run: nomad job run nomad/emoney-account.hcl
+          TF_VAR_nomad_addr: ${{ vars.NOMAD_ADDR }}
+          TF_VAR_nomad_token: ${{ secrets.NOMAD_TOKEN }}
+          TF_VAR_image_tag: ${{ env.IMAGE_TAG }}
+        run: terraform apply -auto-approve
