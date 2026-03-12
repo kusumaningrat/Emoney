@@ -34,7 +34,7 @@ job "Emoney-account-App" {
     }
 
     constraint {
-      attribute = "${attr.unique.hostname}"
+      attribute = "$${attr.unique.hostname}"
       value     = "Worker-02"
     }
 
