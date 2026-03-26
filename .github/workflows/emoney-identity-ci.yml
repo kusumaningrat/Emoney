@@ -192,7 +192,7 @@ jobs:
     if: always()
 
     steps:
-      - name: Send Telegram Notification
+      - name: Send MS Notification
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -252,4 +252,4 @@ jobs:
 
           curl -H "Content-Type: application/json" \
             -d "$TEAMS_PAYLOAD" \
-            "$MS_TEAMS_WEBHOOK_URL"
+            "$TEAMS_WEBHOOK_URL"
