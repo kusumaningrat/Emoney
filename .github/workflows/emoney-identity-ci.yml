@@ -250,7 +250,7 @@ jobs:
             STATUS="❌ FAILED at ${FAILED_STAGE}"
           fi
 
-          MESSAGE=$(printf "🚀 EMoney CI/CD Pipeline\n\n🌿 Branch: %s\n👤 Triggered by: %s\n\n📊 Status: %s\n\n📝 %s\n\n🔗 %s" \
+          MESSAGE=$(printf "🚀 EMoney CI/CD Pipeline\n\n🌿 Branch: %s\n\n👤 Triggered by: %s\n\n📊 Status: %s\n\n📝 %s\n\n🔗 %s" \
             "$BRANCH" \
             "$ACTOR" \
             "$STATUS" \
