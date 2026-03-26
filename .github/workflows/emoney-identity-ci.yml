@@ -259,23 +259,27 @@ jobs:
 
           export MESSAGE
           if command -v jq >/dev/null 2>&1; then
-            TEAMS_PAYLOAD=$(jq -n --arg text "$MESSAGE" '{text: $text}')
+            TEAMS_PAYLOAD=$(jq -n --arg text "$MESSAGE" '{text: $text, message: $text}')
           elif command -v python3 >/dev/null 2>&1; then
-            TEAMS_PAYLOAD="$(python3 -c 'import json,os; print(json.dumps({"text": os.environ["MESSAGE"]}))')"
+            TEAMS_PAYLOAD="$(python3 -c 'import json,os; m=os.environ["MESSAGE"]; print(json.dumps({"text": m, "message": m}))')"
           else
             esc="${MESSAGE//\\/\\\\}"
             esc="${esc//\"/\\\"}"
             esc="${esc//$'\n'/\\n}"
-            TEAMS_PAYLOAD="{\"text\":\"$esc\"}"
+            TEAMS_PAYLOAD="{\"text\":\"$esc\",\"message\":\"$esc\"}"
           fi
 
-          http_code="$(curl -sS -o teams_webhook_response.txt -w "%{http_code}" \
+          http_code="$(curl -sS -o teams_webhook_response.txt -D teams_webhook_headers.txt -w "%{http_code}" \
             -X POST \
             -H "Content-Type: application/json" \
             -d "$TEAMS_PAYLOAD" \
             "$TEAMS_WEBHOOK_URL")"
 
           echo "Teams webhook HTTP status: ${http_code}"
+          if [ -s teams_webhook_headers.txt ]; then
+            echo "Teams webhook response headers (filtered):"
+            grep -iE '^(x-ms-workflow-run-id|x-ms-request-id|x-ms-correlation-id|location):' teams_webhook_headers.txt || true
+          fi
           if [ -s teams_webhook_response.txt ]; then
             echo "Teams webhook response:"
             cat teams_webhook_response.txt
