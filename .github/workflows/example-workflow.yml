@@ -1,0 +1,27 @@
+name: Reusable Deploy Workflow
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      image-tag:
+        required: false
+        type: string
+        default: "latest"
+    secrets:
+      deploy-token:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to ${{ inputs.environment }}
+        run: echo "Deploying ${{ inputs.image-tag }} to ${{ inputs.environment }}"
+        env:
+          TOKEN: ${{ secrets.deploy-token }}

@@ -20,6 +20,13 @@ permissions:
   id-token: write
 
 jobs:
+  call-deploy:
+    uses: ./.github/workflows/reusable-deploy.yml
+    with:
+      environment: production
+      image-tag: v1.2.3
+    secrets:
+      deploy-token: ${{ secrets.PROD_DEPLOY_TOKEN }}
   build:
     runs-on: self-hosted
 
