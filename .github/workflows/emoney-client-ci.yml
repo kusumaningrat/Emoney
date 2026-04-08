@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   call-deploy:
-    uses: ./.github/workflows/reusable-deploy.yml
+    uses: ./.github/workflows/example-workflow.yml
     with:
       environment: production
       image-tag: v1.2.3
