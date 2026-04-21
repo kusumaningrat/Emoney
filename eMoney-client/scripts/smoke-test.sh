@@ -20,24 +20,21 @@ echo "✅ Stats OK"
 echo "🔎 Starting scan..."
 
 SCAN_ID="smoke-$(date +%s)"
-
 SCAN_RESPONSE=$(curl -s -X POST "$SERVICE_URL/api/scan/start" \
   -H "Content-Type: application/json" \
   -d "{
     \"config\": {
       \"scanId\": \"$SCAN_ID\",
       \"organizationId\": \"org-12345\",
-      \"type\": [\"data\"],
+      \"type\": [\"client\"],
       \"auth\": {
-        \"accessToken\": \"${EMONEY_TOKEN:-dummy-token}\"
-      },
-      \"filters\": {
-        \"properties\": [\"id\", \"name\", \"status\"],
-        \"includeArchived\": false
+        \"client_id\": \"your-client-id\",
+        \"jwt_token\": \"your-jwt-token\",
+        \"api_key\": \"your-api-key\"
       }
     }
   }")
-
+SCAN_RESPONSE=$(curl -s -X POST "$SERVICE_URL/api/scan/start" \
 echo "Response: $SCAN_RESPONSE"
 
 # Extract scanId (fallback if API returns differently)
