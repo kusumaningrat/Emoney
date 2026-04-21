@@ -34,7 +34,6 @@ SCAN_RESPONSE=$(curl -s -X POST "$SERVICE_URL/api/scan/start" \
       }
     }
   }")
-SCAN_RESPONSE=$(curl -s -X POST "$SERVICE_URL/api/scan/start" \
 echo "Response: $SCAN_RESPONSE"
 
 # Extract scanId (fallback if API returns differently)
