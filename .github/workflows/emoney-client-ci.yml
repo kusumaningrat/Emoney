@@ -99,14 +99,37 @@ jobs:
 
       - name: Run smoke test
         id: smoke
-        run: chmod +x scripts/smoke-test.sh && bash scripts/smoke-test.sh
+        run: chmod +x eMoney-client/scripts/smoke-test.sh && bash eMoney-client/scripts/smoke-test.sh
         continue-on-error: true
 
       - name: Rollback if smoke test failed
         if: steps.smoke.outcome == 'failure'
+        env:
+          NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
+          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: |
           echo "❌ Smoke test failed. Rolling back..."
-          nomad job revert emoney-client
+
+          JOB_NAME="emoney-client"
+
+          # Get versions (latest first)
+          VERSIONS=$(nomad job history -json $JOB_NAME | jq '.[].Version')
+
+          echo "Versions: $VERSIONS"
+
+          # Get current version (first) and previous (second)
+          CURRENT_VERSION=$(echo "$VERSIONS" | sed -n '1p')
+          PREV_VERSION=$(echo "$VERSIONS" | sed -n '2p')
+
+          echo "Current: $CURRENT_VERSION"
+          echo "Previous: $PREV_VERSION"
+
+          if [ -z "$PREV_VERSION" ]; then
+            echo "❌ No previous version to rollback to"
+            exit 1
+          fi
+
+          nomad job revert $JOB_NAME $PREV_VERSION
 
       - name: Fail pipeline if rollback happened
         if: steps.smoke.outcome == 'failure'
