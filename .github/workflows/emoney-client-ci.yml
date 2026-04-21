@@ -131,7 +131,7 @@ jobs:
             exit 1
           fi
 
-          nomad job revert $JOB_NAME $PREV_VERSION
+          nomad job revert -namespace=$NAMESPACE $JOB_NAME $PREV_VERSION
 
       - name: Fail pipeline if rollback happened
         if: steps.smoke.outcome == 'failure'
