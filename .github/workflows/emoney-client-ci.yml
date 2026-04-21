@@ -87,7 +87,7 @@ jobs:
       - name: Wait until service is ready
         run: |
           for i in {1..12}; do
-            if curl -fs $SERVICE_URL/health; then
+            if curl -fs $SERVICE_URL/api/health; then
               echo "Service is up"
               exit 0
             fi
