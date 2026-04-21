@@ -77,7 +77,7 @@ jobs:
     runs-on: self-hosted
     needs: deploy
     env:
-      SERVICE_URL: ${{ vars.SERVICE_URL }}
+      SERVICE_URL: ${{ env.SERVICE_URL }}
       NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
       NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
 
