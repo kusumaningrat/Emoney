@@ -14,19 +14,13 @@ env:
   PRODUCT_VERSION: "latest" # or: "latest"
   IMAGE_TAG: ${{ github.ref_name }}-${{ github.sha }}
   DOCKER_IMAGE: image-reg.ops.glynac.ai/emoney-advisor/emoney-client
+  SERVICE_URL: http://emoney-client.service.consul:5731
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  call-deploy:
-    uses: ./.github/workflows/example-workflow.yml
-    with:
-      environment: production
-      image-tag: v1.2.3
-    secrets:
-      deploy-token: ${{ secrets.PROD_DEPLOY_TOKEN }}
   build:
     runs-on: self-hosted
 
@@ -78,3 +72,43 @@ jobs:
           NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
           NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: nomad job run nomad/emoney-client.hcl
+
+  smoke-test:
+    runs-on: self-hosted
+    needs: deploy
+    env:
+      SERVICE_URL: ${{ vars.SERVICE_URL }}
+      NOMAD_ADDR: ${{ vars.NOMAD_ADDR }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Wait until service is ready
+        run: |
+          for i in {1..12}; do
+            if curl -fs $SERVICE_URL/health; then
+              echo "Service is up"
+              exit 0
+            fi
+            echo "Waiting..."
+            sleep 5
+          done
+          echo "Service failed to start"
+          exit 1
+
+      - name: Run smoke test
+        id: smoke
+        run: chmod +x scripts/smoke-test.sh && bash scripts/smoke-test.sh
+        continue-on-error: true
+
+      - name: Rollback if smoke test failed
+        if: steps.smoke.outcome == 'failure'
+        run: |
+          echo "❌ Smoke test failed. Rolling back..."
+          nomad job revert emoney-client
+
+      - name: Fail pipeline if rollback happened
+        if: steps.smoke.outcome == 'failure'
+        run: exit 1
