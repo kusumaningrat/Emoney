@@ -24,11 +24,18 @@ SCAN_ID="smoke-$(date +%s)"
 SCAN_RESPONSE=$(curl -s -X POST "$SERVICE_URL/api/scan/start" \
   -H "Content-Type: application/json" \
   -d "{
-    \"scanId\": \"$SCAN_ID\",
-    \"organizationId\": \"smoke-test-org\",
-    \"type\": \"smoke\",
-    \"auth\": {},
-    \"filters\": {}
+    \"config\": {
+      \"scanId\": \"$SCAN_ID\",
+      \"organizationId\": \"org-12345\",
+      \"type\": [\"data\"],
+      \"auth\": {
+        \"accessToken\": \"${EMONEY_TOKEN:-dummy-token}\"
+      },
+      \"filters\": {
+        \"properties\": [\"id\", \"name\", \"status\"],
+        \"includeArchived\": false
+      }
+    }
   }")
 
 echo "Response: $SCAN_RESPONSE"
