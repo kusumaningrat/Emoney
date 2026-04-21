@@ -110,7 +110,7 @@ jobs:
         run: |
           echo "❌ Smoke test failed. Rolling back..."
 
-          JOB_NAME="emoney-client"
+          JOB_NAME="Emoney-client-App"
 
           # Get versions (latest first)
           VERSIONS=$(nomad job history -json $JOB_NAME | jq '.[].Version')

@@ -21,7 +21,7 @@ echo "🔎 Starting scan..."
 
 SCAN_ID="smoke-$(date +%s)"
 
-SCAN_RESPONSE=$(curl -s -X POST "$SERVICE_URL/scan/start" \
+SCAN_RESPONSE=$(curl -s -X POST "$SERVICE_URL/api/scan/start" \
   -H "Content-Type: application/json" \
   -d "{
     \"scanId\": \"$SCAN_ID\",
