@@ -1,0 +1,21 @@
+name: Deploy PROD
+
+on:
+  workflow_dispatch: # ← manual trigger only
+
+env:
+  # Reuse staging image — same SHA, no rebuild
+  IMAGE_TAG: staging-${{ github.sha }}
+  DOCKER_IMAGE: image-reg.ops.glynac.ai/emoney-advisor/emoney-identity
+
+jobs:
+  deploy-prod:
+    uses: ./.github/workflows/_reusable-deploy.yml
+    with:
+      environment: prod
+      image-tag: staging-${{ github.sha }} # ← pulls staging image, retags to prod
+      nomad-addr: ${{ vars.NOMAD_ADDR_PROD }}
+    secrets:
+      HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_PROD }}
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
