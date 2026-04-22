@@ -70,7 +70,7 @@ jobs:
 
       - name: Deploy to Nomad (${{ inputs.environment }})
         env:
-          NOMAD_ADDR: ${{ vars[format('NOMAD_ADDR_{0}', upper(inputs.environment))] }}
+          NOMAD_ADDR: ${{ secrets.NOMAD_TOKEN }}
           NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: nomad job run ${{ inputs.nomad-job-file }}
 
