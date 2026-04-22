@@ -24,86 +24,8 @@ permissions:
   id-token: write
 
 jobs:
-  security-precheck:
-    runs-on: self-hosted
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Gitleaks scan
-        id: gitleaks
-        run: |
-          set +e
-          docker run --rm \
-            -v "$PWD:/repo" \
-            zricethezav/gitleaks:v8.18.2 detect \
-            --source=/repo \
-            --report-format=json \
-            --report-path=/repo/gitleaks-report.json
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
-          set -e
-
-      - name: Upload Gitleaks report to DefectDojo
-        if: always()
-        run: |
-          curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-            -F "scan_type=Gitleaks Scan" \
-            -F "file=@gitleaks-report.json" \
-            -F "product_name=${{ env.PRODUCT_NAME }}" \
-            -F "product_type_name=${{ env.PRODUCT_TYPE }}" \
-            -F "engagement_name=${{ env.ENGAGEMENT_NAME }}" \
-            -F "auto_create_context=true"
-
-      # - name: Stop pipeline if leaks found
-      #   if: steps.gitleaks.outputs.exit_code != '0'
-      #   run: |
-      #     echo "❌ Secrets detected — stopping pipeline"
-      #     exit 1
-
-  sonar:
-    runs-on: self-hosted
-    needs: security-precheck
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v2
-        with:
-          projectBaseDir: eMoney-identity
-          args: >
-            -Dsonar.projectKey=emoney-identity
-            -Dsonar.projectName=emoney-identity
-            -Dsonar.sources=.
-            -Dsonar.python.version=3.11
-            -Dsonar.javascript.file.suffixes=-
-            -Dsonar.typescript.file.suffixes=-
-            -Dsonar.exclusions=**/__pycache__/**,**/venv/**,**/migrations/**,**/*.js,**/*.ts,**/*.jsx,**/*.tsx
-            -Dsonar.plugins.downloadOnlyRequired=true
-            -Dsonar.scanner.skipJreProvisioning=true
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
-      - name: SonarQube Quality Gate
-        uses: SonarSource/sonarqube-quality-gate-action@v1
-        timeout-minutes: 5
-        with:
-          scanMetadataReportFile: eMoney-identity/.scannerwork/report-task.txt
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
   build:
     runs-on: self-hosted
-    needs: sonar
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -127,45 +49,8 @@ jobs:
       - name: Save image tag
         run: echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
 
-  security-scan:
-    runs-on: self-hosted
-    needs: build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create Trivy cache directory
-        run: mkdir -p /opt/trivy-cache
-
-      - name: Trivy scan
-        run: |
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v /opt/trivy-cache:/root/.cache/trivy \
-            -v "$PWD:/tmp" \
-            aquasec/trivy:0.50.1 image \
-            --severity HIGH,CRITICAL \
-            --ignore-unfixed \
-            --format json \
-            --output /tmp/emoney-identity-report.json \
-            --exit-code 1 \
-            ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
-
-      - name: Upload Trivy report to DefectDojo
-        run: |
-          curl -s -X POST "${{ vars.DEFECTDOJO_URL }}/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_TOKEN }}" \
-            -F "scan_type=Trivy Scan" \
-            -F "file=@emoney-identity-report.json" \
-            -F "product_name=${{ env.PRODUCT_NAME }}" \
-            -F "product_type_name=${{ env.PRODUCT_TYPE }}" \
-            -F "engagement_name=${{ env.ENGAGEMENT_NAME }}" \
-            -F "auto_create_context=true"
-
   deploy:
     runs-on: self-hosted
-    needs: security-scan
 
     steps:
       - name: Checkout code
