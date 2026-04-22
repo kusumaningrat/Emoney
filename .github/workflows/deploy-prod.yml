@@ -1,0 +1,21 @@
+name: Deploy PROD
+
+on:
+  push:
+    branches:
+      - main # triggers when staging is merged to main
+    paths:
+      - "eMoney-identity/**"
+
+jobs:
+  deploy-prod:
+    uses: ./.github/workflows/_reusable-deploy.yml
+    with:
+      environment: prod
+      # Same SHA promoted from staging — mirrors exactly!
+      image-tag: dev-${{ github.sha }}
+      nomad-addr: ${{ vars.NOMAD_ADDR_DEV }}
+    secrets:
+      HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_PROD }}
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
