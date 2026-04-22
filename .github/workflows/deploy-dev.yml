@@ -38,12 +38,15 @@ jobs:
             ${{ env.DOCKER_IMAGE }}:${{ env.IMAGE_TAG }}
             ${{ env.DOCKER_IMAGE }}:dev
 
+      - name: Set image tag output
+        id: set-tag
+        run: echo "image-tag=${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+
   # ── Deploy to DEV using reusable workflow ──
   deploy-dev:
     needs: build
     uses: ./.github/workflows/_reusable-deploy.yml
     with:
-      environment: dev
       image-tag: ${{ needs.build.outputs.image-tag }}
       nomad-addr: ${{ vars.NOMAD_ADDR }}
     secrets:
