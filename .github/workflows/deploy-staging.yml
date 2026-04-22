@@ -1,11 +1,7 @@
 name: Deploy STAGING
 
 on:
-  push:
-    branches:
-      - staging
-    paths:
-      - "eMoney-identity/**"
+  workflow_dispatch: # ← manual trigger only
 
 env:
   IMAGE_TAG: staging-${{ github.sha }}
