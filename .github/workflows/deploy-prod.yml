@@ -14,6 +14,7 @@ jobs:
       environment: prod
       # Same SHA promoted from staging — mirrors exactly!
       image-tag: dev-${{ github.sha }}
+      nomad-addr: ${{ vars.NOMAD_ADDR_DEV }}
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
       NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_PROD }}
