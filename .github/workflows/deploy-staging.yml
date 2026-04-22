@@ -1,0 +1,20 @@
+name: Deploy STAGING
+
+on:
+  push:
+    branches:
+      - staging # triggers when dev is merged to staging branch
+    paths:
+      - "eMoney-identity/**"
+
+jobs:
+  deploy-staging:
+    uses: ./.github/workflows/_reusable-deploy.yml
+    with:
+      environment: staging
+      # Reuse the same SHA — no rebuild!
+      image-tag: dev-${{ github.sha }}
+    secrets:
+      HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_STAGING }}
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
