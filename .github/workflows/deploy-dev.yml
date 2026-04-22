@@ -46,6 +46,7 @@ jobs:
     with:
       environment: dev
       image-tag: ${{ needs.build.outputs.image-tag }}
+      nomad-addr: ${{ vars.NOMAD_ADDR_DEV }}
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
       NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_DEV }}
