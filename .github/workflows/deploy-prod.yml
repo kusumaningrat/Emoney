@@ -1,11 +1,7 @@
 name: Deploy PROD
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "eMoney-identity/**"
+  workflow_dispatch: # ← manual trigger only
 
 env:
   # Reuse staging image — same SHA, no rebuild
