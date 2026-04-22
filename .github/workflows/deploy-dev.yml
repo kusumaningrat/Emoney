@@ -47,6 +47,7 @@ jobs:
     needs: build
     uses: ./.github/workflows/_reusable-deploy.yml
     with:
+      environment: dev
       image-tag: ${{ needs.build.outputs.image-tag }}
       nomad-addr: ${{ vars.NOMAD_ADDR }}
     secrets:
