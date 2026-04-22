@@ -12,11 +12,10 @@ env:
   DOCKER_IMAGE: image-reg.ops.glynac.ai/emoney-advisor/emoney-identity
 
 jobs:
-  # ── Build happens ONLY here on dev ──
   build:
     runs-on: self-hosted
     outputs:
-      image-tag: ${{ env.IMAGE_TAG }}
+      image-tag: ${{ steps.set-tag.outputs.image-tag }}
 
     steps:
       - name: Checkout code
@@ -46,8 +45,8 @@ jobs:
     with:
       environment: dev
       image-tag: ${{ needs.build.outputs.image-tag }}
-      nomad-addr: ${{ vars.NOMAD_ADDR_DEV }}
+      nomad-addr: ${{ vars.NOMAD_ADDR }}
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
-      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_DEV }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
       TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
