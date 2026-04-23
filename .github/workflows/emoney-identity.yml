@@ -6,7 +6,6 @@ on:
       - dev
     paths:
       - "eMoney-identity/**"
-
   workflow_dispatch:
     inputs:
       environment:
@@ -17,9 +16,12 @@ on:
           - staging
           - prod
       sha:
-        description: "SHA to promote (prod only, leave empty for staging)"
+        description: "SHA to promote (prod only)"
         required: false
         type: string
+
+env:
+  TARGET_ENV: ${{ github.event_name == 'push' && 'dev' || inputs.environment }}
 
 jobs:
   build:
@@ -60,7 +62,7 @@ jobs:
       nomad-job-file: nomad/emoney-identity-staging.hcl
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
-      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_STAGING }}
       TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
 
   deploy-prod:
@@ -68,10 +70,10 @@ jobs:
     uses: ./.github/workflows/_reusable-deploy.yml
     with:
       environment: prod
-      image-tag: staging-${{ inputs.sha }} # ← reuse staging image, no rebuild
+      image-tag: staging-${{ inputs.sha }}
       nomad-addr: ${{ vars.NOMAD_ADDR_PROD }}
       nomad-job-file: nomad/emoney-identity-prod.hcl
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
-      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_PROD }}
       TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
