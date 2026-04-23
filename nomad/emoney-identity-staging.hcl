@@ -1,4 +1,4 @@
-job "Emoney-identity-App" {
+job "Emoney-identity-Staging-App" {
   datacenters = ["glynac-dc"]
   type        = "service"
   namespace   = "extraction-service"
@@ -14,7 +14,7 @@ job "Emoney-identity-App" {
 
     network {
       port "http" {
-        static       = 5709
+        static       = 5710
         to           = 5709
         host_network = "private"
       }
