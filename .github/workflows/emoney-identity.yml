@@ -62,7 +62,7 @@ jobs:
       nomad-job-file: nomad/emoney-identity-staging.hcl
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
-      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_STAGING }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
       TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
 
   deploy-prod:
@@ -71,7 +71,7 @@ jobs:
     with:
       environment: prod
       image-tag: staging-${{ inputs.sha }}
-      nomad-addr: ${{ vars.NOMAD_ADDR_PROD }}
+      nomad-addr: ${{ vars.NOMAD_ADDR }}
       nomad-job-file: nomad/emoney-identity-prod.hcl
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
