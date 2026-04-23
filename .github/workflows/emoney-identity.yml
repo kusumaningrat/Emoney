@@ -75,5 +75,5 @@ jobs:
       nomad-job-file: nomad/emoney-identity-prod.hcl
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
-      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN_PROD }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
       TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
