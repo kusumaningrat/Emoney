@@ -1,0 +1,77 @@
+name: EMoney Identity
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "eMoney-identity/**"
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+      sha:
+        description: "SHA to promote (prod only, leave empty for staging)"
+        required: false
+        type: string
+
+jobs:
+  build:
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+    uses: ./.github/workflows/_reusable-build.yml
+    with:
+      service-dir: eMoney-identity
+      service-name: emoney-identity
+      image-base: image-reg.ops.glynac.ai/emoney-advisor
+      environment: ${{ github.event_name == 'push' && 'dev' || inputs.environment }}
+    secrets:
+      HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+
+  deploy-dev:
+    needs: build
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/_reusable-deploy.yml
+    with:
+      environment: dev
+      image-tag: ${{ needs.build.outputs.image-tag }}
+      nomad-addr: ${{ vars.NOMAD_ADDR }}
+      nomad-job-file: nomad/emoney-identity-dev.hcl
+    secrets:
+      HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+
+  deploy-staging:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'staging'
+    uses: ./.github/workflows/_reusable-deploy.yml
+    with:
+      environment: staging
+      image-tag: ${{ needs.build.outputs.image-tag }}
+      nomad-addr: ${{ vars.NOMAD_ADDR_STAGING }}
+      nomad-job-file: nomad/emoney-identity-staging.hcl
+    secrets:
+      HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+
+  deploy-prod:
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
+    uses: ./.github/workflows/_reusable-deploy.yml
+    with:
+      environment: prod
+      image-tag: staging-${{ inputs.sha }} # ← reuse staging image, no rebuild
+      nomad-addr: ${{ vars.NOMAD_ADDR_PROD }}
+      nomad-job-file: nomad/emoney-identity-prod.hcl
+    secrets:
+      HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
+      NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+      TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
