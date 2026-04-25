@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      # ✅ Removed paths filter so ANY push to main triggers dev deploy
   workflow_dispatch:
     inputs:
       secret_key:
@@ -31,17 +30,20 @@ jobs:
   # KEY VALIDATION (manual trigger only)
   # ─────────────────────────────────────────
   validate-key:
-    name: Validate Pipeline Key
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Check pipeline key
-        run: |
-          if [ "${{ github.event.inputs.secret_key }}" != "${{ secrets.PIPELINE_KEY }}" ]; then
-            echo "❌ Invalid pipeline key. Access denied."
-            exit 1
-          fi
-          echo "✅ Key validated. Proceeding..."
+  name: Validate Pipeline Key
+  runs-on: ubuntu-latest
+  if: github.event_name == 'workflow_dispatch'
+  steps:
+    - name: Check pipeline key
+      env:
+        PIPELINE_KEY: ${{ secrets.PIPELINE_KEY }}
+        INPUT_KEY: ${{ github.event.inputs.secret_key }}
+      run: |
+        if [ "$INPUT_KEY" != "$PIPELINE_KEY" ]; then
+          echo "❌ Invalid pipeline key. Access denied."
+          exit 1
+        fi
+        echo "✅ Key validated. Proceeding..."
 
   # ─────────────────────────────────────────
   # BUILD (auto on push, or manual staging)
