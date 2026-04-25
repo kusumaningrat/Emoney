@@ -3,11 +3,14 @@ name: EMoney Identity
 on:
   push:
     branches:
-      - dev
-    paths:
-      - "eMoney-identity/**"
+      - main
+      # ✅ Removed paths filter so ANY push to main triggers dev deploy
   workflow_dispatch:
     inputs:
+      secret_key:
+        description: "Enter pipeline key to proceed"
+        required: true
+        type: string
       environment:
         description: "Environment to deploy"
         required: true
@@ -24,10 +27,38 @@ env:
   TARGET_ENV: ${{ github.event_name == 'push' && 'dev' || inputs.environment }}
 
 jobs:
+  # ─────────────────────────────────────────
+  # KEY VALIDATION (manual trigger only)
+  # ─────────────────────────────────────────
+  validate-key:
+    name: Validate Pipeline Key
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Check pipeline key
+        run: |
+          if [ "${{ github.event.inputs.secret_key }}" != "${{ secrets.PIPELINE_KEY }}" ]; then
+            echo "❌ Invalid pipeline key. Access denied."
+            exit 1
+          fi
+          echo "✅ Key validated. Proceeding..."
+
+  # ─────────────────────────────────────────
+  # BUILD (auto on push, or manual staging)
+  # ─────────────────────────────────────────
   build:
+    needs: [validate-key]
+    # validate-key is skipped on push, so we handle both cases:
     if: |
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+      always() &&
+      (
+        github.event_name == 'push' ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.environment == 'staging' &&
+          needs.validate-key.result == 'success'
+        )
+      )
     uses: ./.github/workflows/_reusable-build.yml
     with:
       service-dir: eMoney-identity
@@ -37,6 +68,9 @@ jobs:
     secrets:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
 
+  # ─────────────────────────────────────────
+  # DEPLOY DEV — auto on every push to main
+  # ─────────────────────────────────────────
   deploy-dev:
     needs: build
     if: github.event_name == 'push'
@@ -51,9 +85,17 @@ jobs:
       NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
       TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
 
+  # ─────────────────────────────────────────
+  # DEPLOY STAGING — manual only
+  # ─────────────────────────────────────────
   deploy-staging:
-    needs: build
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'staging'
+    needs: [validate-key, build]
+    if: |
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.environment == 'staging' &&
+      needs.validate-key.result == 'success' &&
+      needs.build.result == 'success'
     uses: ./.github/workflows/_reusable-deploy.yml
     with:
       environment: staging
@@ -65,8 +107,16 @@ jobs:
       NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
       TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
 
+  # ─────────────────────────────────────────
+  # DEPLOY PROD — manual only, requires SHA
+  # ─────────────────────────────────────────
   deploy-prod:
-    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
+    needs: [validate-key]
+    if: |
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.environment == 'prod' &&
+      needs.validate-key.result == 'success'
     uses: ./.github/workflows/_reusable-deploy.yml
     with:
       environment: prod
