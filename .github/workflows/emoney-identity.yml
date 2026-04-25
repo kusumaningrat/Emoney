@@ -73,7 +73,10 @@ jobs:
   # ─────────────────────────────────────────
   deploy-dev:
     needs: build
-    if: github.event_name == 'push'
+    if: |
+      always() &&
+      github.event_name == 'push' &&
+      needs.build.result == 'success'
     uses: ./.github/workflows/_reusable-deploy.yml
     with:
       environment: dev
