@@ -43,3 +43,32 @@ categorized sections in GitHub Releases (see `.github/release.yml`):
 PRs with none of these labels still appear in the notes, under **Other
 Changes** — but that bucket should stay empty. If you're not sure which label
 fits, ask in review rather than leaving it unlabeled.
+
+## Full example
+
+A PR that adds a liability extraction endpoint to `emoney-account`, tracked as
+`BEE-301`:
+
+- **Title:** `feat(emoney-account): add liability extraction endpoint [BEE-301]`
+- **Label:** `feature`
+- **Description** (using `.github/PULL_REQUEST_TEMPLATE.md`):
+
+  ```markdown
+  ## Summary
+
+  Adds a `/liabilities/extract` endpoint that pulls liability records from a
+  linked account and normalizes them into our schema. Needed so the financial
+  planning service can include liabilities in net worth calculations.
+
+  ## Checklist
+  - [x] PR title follows `<type>(<scope>): <summary> [TICKET-ID]`
+  - [x] A changelog label is applied: `feature`
+  ```
+
+This is what turns into a release note reader sees:
+
+> **Features**
+> - feat(emoney-account): add liability extraction endpoint [BEE-301] (#42)
+
+Compare that to a PR titled `Add required key` with no label — it would land
+under **Other Changes** with no indication of what it actually did.
