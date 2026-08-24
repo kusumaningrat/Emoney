@@ -21,6 +21,11 @@ on:
         description: "SHA to promote (prod only)"
         required: false
         type: string
+      major_bump:
+        description: "Force a major version bump instead of auto minor/patch (staging only — tagging happens on staging deploy)"
+        required: false
+        type: boolean
+        default: false
 
 env:
   TARGET_ENV: ${{ github.event_name == 'push' && 'dev' || inputs.environment }}
@@ -133,3 +138,24 @@ jobs:
       HARBOR_TOKEN: ${{ secrets.HARBOR_TOKEN }}
       NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
       TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+
+  # ─────────────────────────────────────────
+  # TAG RELEASE — auto version + push tag once staging deploy succeeds.
+  # Internal changelog is cut here, on staging promotion, not on prod —
+  # prod promotion redeploys the same already-tagged staging artifact and
+  # does not create a new version. External release notes stay a manual
+  # step a human writes once the version is promoted to prod.
+  # ─────────────────────────────────────────
+  tag-release:
+    needs: deploy-staging
+    if: |
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.environment == 'staging' &&
+      needs.deploy-staging.result == 'success'
+    uses: ./.github/workflows/_reusable-tag-release.yml
+    with:
+      service-prefix: identity
+      service-dir: eMoney-identity
+      sha: ${{ github.sha }}
+      major-bump: ${{ inputs.major_bump }}
