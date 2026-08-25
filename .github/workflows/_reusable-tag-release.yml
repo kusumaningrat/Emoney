@@ -20,6 +20,10 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      gh-token:
+        description: "PAT with contents:write, used only for the tag push. The default GITHUB_TOKEN can push a tag but GitHub blocks it from triggering release.yml's tag-push trigger — only a push authenticated by a non-default token counts as a real trigger."
+        required: true
 
 permissions:
   contents: write
@@ -34,6 +38,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.sha }}
+          token: ${{ secrets.gh-token }}
 
       - name: Compute next version and push tag
         uses: actions/github-script@v7
