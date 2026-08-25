@@ -1,9 +1,15 @@
 name: Release
 
+# GSCRUM-1274: versioning is per service, not per repo (mirrors
+# Glynac_service). Only `identity-v*` is wired up today — emoney-identity
+# is the only one of this repo's 7 services with a staging/prod deploy
+# split to hang auto-tagging off of. Add a case below (and a matching
+# tag-release job in that service's CI workflow) as each of the other 6
+# services gets the same staging/prod split.
 on:
   push:
     tags:
-      - "v*"
+      - "identity-v*"
 
 permissions:
   contents: write
@@ -12,17 +18,138 @@ jobs:
   release:
     runs-on: self-hosted
     steps:
-      - name: Create GitHub Release with generated notes
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve service and comparison base
+        id: resolve
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          case "$TAG" in
+            identity-v*)
+              PREFIX="identity"
+              SERVICE_DIR="eMoney-identity"
+              SERVICE_NAME="EMoney Identity"
+              ;;
+            *)
+              echo "Unrecognized tag prefix: $TAG" >&2
+              exit 1
+              ;;
+          esac
+
+          # Most recent prior tag with the SAME service prefix, not the
+          # most recent tag overall — once other services get their own
+          # prefix, their tags must not affect this diff.
+          PREV_TAG=$(git tag -l "${PREFIX}-v*" --sort=-v:refname | grep -vx "$TAG" | head -n1 || true)
+          if [ -n "$PREV_TAG" ]; then
+            BASE_SHA=$(git rev-list -n1 "$PREV_TAG")
+          else
+            BASE_SHA=$(git rev-list --max-parents=0 HEAD | tail -n1)
+          fi
+
+          {
+            echo "tag=$TAG"
+            echo "prefix=$PREFIX"
+            echo "service_dir=$SERVICE_DIR"
+            echo "service_name=$SERVICE_NAME"
+            echo "prev_tag=$PREV_TAG"
+            echo "base_sha=$BASE_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build service-scoped release notes
         uses: actions/github-script@v7
         with:
           script: |
-            const tag = context.ref.replace('refs/tags/', '');
+            const tag = "${{ steps.resolve.outputs.tag }}";
+            const serviceDir = "${{ steps.resolve.outputs.service_dir }}";
+            const serviceName = "${{ steps.resolve.outputs.service_name }}";
+            const prevTag = "${{ steps.resolve.outputs.prev_tag }}";
+            const baseSha = "${{ steps.resolve.outputs.base_sha }}";
+
+            // Keep in sync with .github/release.yml's category labels.
+            const CATEGORIES = [
+              { title: "Features", labels: ["feature", "enhancement"] },
+              { title: "Fixes", labels: ["bug", "fix"] },
+              { title: "Chores", labels: ["chore", "dependencies", "documentation"] },
+            ];
+            const EXCLUDE_LABELS = new Set(["ignore-for-release"]);
+
+            const { owner, repo } = context.repo;
+
+            const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
+              owner,
+              repo,
+              basehead: `${baseSha}...${tag}`,
+            });
+
+            // Merge commits carry the PR number regardless of merge
+            // strategy (merge commit, squash, or rebase all leave a
+            // `(#123)` or `Merge pull request #123` trace).
+            const prNumbers = new Set();
+            for (const c of compare.commits) {
+              const msg = c.commit.message;
+              const merge = msg.match(/Merge pull request #(\d+)/);
+              if (merge) prNumbers.add(Number(merge[1]));
+              const squash = msg.match(/\(#(\d+)\)/);
+              if (squash) prNumbers.add(Number(squash[1]));
+            }
+
+            const buckets = { Features: [], Fixes: [], Chores: [], Other: [] };
+
+            for (const number of prNumbers) {
+              let pr;
+              try {
+                ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number }));
+              } catch (e) {
+                continue; // PR number parsed from a commit message that doesn't resolve to a real PR
+              }
+              if (!pr.merged_at) continue;
+
+              const labels = pr.labels.map((l) => l.name);
+              if (labels.some((l) => EXCLUDE_LABELS.has(l))) continue;
+
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner,
+                repo,
+                pull_number: number,
+              });
+              const touchesService = files.some((f) => f.filename.startsWith(`${serviceDir}/`));
+              if (!touchesService) continue;
+
+              let bucket = "Other";
+              for (const cat of CATEGORIES) {
+                if (labels.some((l) => cat.labels.includes(l))) {
+                  bucket = cat.title;
+                  break;
+                }
+              }
+              buckets[bucket].push(`- ${pr.title} (#${pr.number})`);
+            }
+
+            let body = "";
+            let hasContent = false;
+            for (const title of [...CATEGORIES.map((c) => c.title), "Other Changes"]) {
+              const key = title === "Other Changes" ? "Other" : title;
+              if (buckets[key].length) {
+                hasContent = true;
+                body += `### ${title}\n${buckets[key].join("\n")}\n\n`;
+              }
+            }
+            if (!hasContent) {
+              body = `_No ${serviceName} changes in this release._\n\n`;
+            }
+            if (prevTag) {
+              body += `**Full Changelog**: https://github.com/${owner}/${repo}/compare/${prevTag}...${tag}\n`;
+            }
+
             const { data: release } = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              owner,
+              repo,
               tag_name: tag,
-              target_commitish: 'main',
-              generate_release_notes: true,
-              name: tag,
+              target_commitish: "main",
+              name: `${serviceName} ${tag}`,
+              body,
             });
             core.info(`Created release ${release.html_url}`);

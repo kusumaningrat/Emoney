@@ -1,0 +1,126 @@
+name: Reusable — Tag Release on Staging Deploy
+
+on:
+  workflow_call:
+    inputs:
+      service-prefix:
+        description: "Tag prefix for this service: identity / account / client / core / financial-planning / master / mock-server"
+        required: true
+        type: string
+      service-dir:
+        description: "Top-level directory owned by this service"
+        required: true
+        type: string
+      sha:
+        description: "The commit that was just promoted to staging"
+        required: true
+        type: string
+      major-bump:
+        description: "Force a major version bump instead of the auto minor/patch decision"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  tag-release:
+    name: "Tag Release (${{ inputs.service-prefix }})"
+    runs-on: self-hosted
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.sha }}
+
+      - name: Compute next version and push tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require("child_process");
+            const prefix = "${{ inputs.service-prefix }}";
+            const serviceDir = "${{ inputs.service-dir }}";
+            const sha = "${{ inputs.sha }}";
+            const majorBump = ${{ inputs.major-bump }};
+            const { owner, repo } = context.repo;
+
+            const git = (cmd) => execSync(cmd, { encoding: "utf8" }).trim();
+
+            // Auto version bump reuses the same PR-label signal as the
+            // changelog categories (see .github/release.yml) — a PR
+            // labeled feature/enhancement bumps minor, anything else
+            // (bug/fix/chore/dependencies/documentation) bumps patch.
+            // A real breaking change is a deliberate human call via the
+            // major-bump input, never inferred automatically.
+            const prevTag = git(`git tag -l "${prefix}-v*" --sort=-v:refname | head -n1`);
+            const baseSha = prevTag
+              ? git(`git rev-list -n1 ${prevTag}`)
+              : git(`git rev-list --max-parents=0 HEAD`).split("\n").pop();
+
+            const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
+              owner,
+              repo,
+              basehead: `${baseSha}...${sha}`,
+            });
+
+            const prNumbers = new Set();
+            for (const c of compare.commits) {
+              const merge = c.commit.message.match(/Merge pull request #(\d+)/);
+              if (merge) prNumbers.add(Number(merge[1]));
+              const squash = c.commit.message.match(/\(#(\d+)\)/);
+              if (squash) prNumbers.add(Number(squash[1]));
+            }
+
+            let touchedService = false;
+            let minorSignal = false;
+            for (const number of prNumbers) {
+              let pr;
+              try {
+                ({ data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: number }));
+              } catch (e) {
+                continue;
+              }
+              if (!pr.merged_at) continue;
+
+              const files = await github.paginate(github.rest.pulls.listFiles, {
+                owner,
+                repo,
+                pull_number: number,
+              });
+              if (!files.some((f) => f.filename.startsWith(`${serviceDir}/`))) continue;
+
+              touchedService = true;
+              const labels = pr.labels.map((l) => l.name);
+              if (labels.includes("feature") || labels.includes("enhancement")) minorSignal = true;
+            }
+
+            if (prevTag && !touchedService) {
+              core.info(`No ${serviceDir} changes between ${prevTag} and ${sha} — skipping tag.`);
+              return;
+            }
+
+            let nextVersion;
+            if (!prevTag) {
+              nextVersion = "0.1.0";
+            } else {
+              const m = prevTag.match(/-v(\d+)\.(\d+)\.(\d+)$/);
+              let [major, minor, patch] = [Number(m[1]), Number(m[2]), Number(m[3])];
+              if (majorBump) {
+                major += 1;
+                minor = 0;
+                patch = 0;
+              } else if (minorSignal) {
+                minor += 1;
+                patch = 0;
+              } else {
+                patch += 1;
+              }
+              nextVersion = `${major}.${minor}.${patch}`;
+            }
+
+            const newTag = `${prefix}-v${nextVersion}`;
+            git(`git tag ${newTag} ${sha}`);
+            git(`git push origin ${newTag}`);
+            core.info(`Pushed ${newTag} at ${sha} (previous: ${prevTag || "none"})`);
