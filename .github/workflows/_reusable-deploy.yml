@@ -61,9 +61,6 @@ jobs:
           docker tag $IMAGE:$TAG $IMAGE:$ENV
           docker push $IMAGE:$ENV
 
-      - name: Setup Nomad
-        uses: hashicorp/setup-nomad@main
-
       - name: Update Nomad job with image tag
         run: |
           sed -i "s|IMAGE_TAG_PLACEHOLDER|${{ inputs.image-tag }}|g" ${{ inputs.nomad-job-file }}
